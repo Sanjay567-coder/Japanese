@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import Image from "next/image";
@@ -18,14 +18,12 @@ export default function MemoryLaneClient({ images }: MemoryLaneClientProps) {
   const songRef = useRef<HTMLAudioElement | null>(null);
   const mutedRef = useRef(false);
 
-  // Sync mute state ref
   useEffect(() => {
     mutedRef.current = muted;
     if (bgRef.current) bgRef.current.muted = muted;
     if (songRef.current) songRef.current.muted = muted;
   }, [muted]);
 
-  // Handle card text & photo distribution
   const cards = useMemo(() => [
     {
       id: "cover",
@@ -36,6 +34,7 @@ export default function MemoryLaneClient({ images }: MemoryLaneClientProps) {
       sub: "A small memory lane for the teacher who made Japanese feel warmer, closer, and easier to love.",
       cta: "Enter the lane",
       photos: images.slice(0, 1),
+      hasAudio: false,
     },
     {
       id: "first-day",
@@ -57,6 +56,7 @@ export default function MemoryLaneClient({ images }: MemoryLaneClientProps) {
       sub: "Carrying the quiet composure of Dhoni, your presence was defined by steady warmth and a reassuring smile. You made complex grammar feel simple, encouraging us to act out verbs and bring the vocabulary to life.",
       cta: null,
       photos: images.slice(0, 2),
+      hasAudio: false,
     },
     {
       id: "gratitude",
@@ -67,6 +67,7 @@ export default function MemoryLaneClient({ images }: MemoryLaneClientProps) {
       sub: "We are deeply grateful for your egalitarian approach to teaching. You never lectured from a pedestal, but worked alongside us like a fellow student—sharing in our breakthroughs, our confusions, and our growth.",
       cta: null,
       photos: images.slice(1, 3),
+      hasAudio: false,
     },
     {
       id: "farewell",
@@ -77,40 +78,31 @@ export default function MemoryLaneClient({ images }: MemoryLaneClientProps) {
       sub: "Thank you for every class, every correction, every smile, and every moment where you made us believe we could do better.",
       cta: "Walk again",
       photos: images.slice(0, 3),
+      hasAudio: false,
     },
   ], [images]);
 
   const total = cards.length;
   const current = cards[page];
 
-  // Initialize and manage audio contexts
   useEffect(() => {
     const bg = new Audio("/assets/audio/background.mp3");
     const song = new Audio("/assets/audio/audio.mp3");
-
     bg.loop = true;
     bg.volume = 0.15;
     song.volume = 0.85;
-
     bgRef.current = bg;
     songRef.current = song;
 
     const handleSongEnded = () => {
       setLuffyPlaying(false);
-      if (!mutedRef.current) {
-        bg.play().catch(() => {});
-      }
+      if (!mutedRef.current) bg.play().catch(() => {});
     };
     song.addEventListener("ended", handleSongEnded);
-
-    // Play background music on load (browsers may require interaction)
     bg.play().catch(() => {});
 
-    // Interaction fallback to start audio if blocked
     const startOnInteraction = () => {
-      if (bg.paused && !mutedRef.current) {
-        bg.play().catch(() => {});
-      }
+      if (bg.paused && !mutedRef.current) bg.play().catch(() => {});
       window.removeEventListener("pointerdown", startOnInteraction);
     };
     window.addEventListener("pointerdown", startOnInteraction, { once: true });
@@ -124,41 +116,31 @@ export default function MemoryLaneClient({ images }: MemoryLaneClientProps) {
     };
   }, []);
 
-  // Sync background music stop/play when Luffy's song is toggled or page changes
   const toggleLuffy = useCallback(() => {
     const bg = bgRef.current;
     const song = songRef.current;
     if (!bg || !song) return;
-
     if (luffyPlaying) {
       song.pause();
       setLuffyPlaying(false);
-      if (!mutedRef.current) {
-        bg.play().catch(() => {});
-      }
+      if (!mutedRef.current) bg.play().catch(() => {});
     } else {
       bg.pause();
       song.play()
         .then(() => setLuffyPlaying(true))
-        .catch(() => {
-          if (!mutedRef.current) bg.play().catch(() => {});
-        });
+        .catch(() => { if (!mutedRef.current) bg.play().catch(() => {}); });
     }
   }, [luffyPlaying]);
 
-  // Clean up Luffy audio when navigating away from the First Day card
   useEffect(() => {
     if (current.id !== "first-day" && luffyPlaying) {
       songRef.current?.pause();
       if (songRef.current) songRef.current.currentTime = 0;
       setLuffyPlaying(false);
-      if (!mutedRef.current) {
-        bgRef.current?.play().catch(() => {});
-      }
+      if (!mutedRef.current) bgRef.current?.play().catch(() => {});
     }
   }, [current.id, luffyPlaying]);
 
-  // Navigation handlers
   const navigate = useCallback((d: 1 | -1) => {
     setPage((prev) => {
       const next = prev + d;
@@ -173,92 +155,116 @@ export default function MemoryLaneClient({ images }: MemoryLaneClientProps) {
     setPage(index);
   }, [page]);
 
-  // Keyboard navigation listeners
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "ArrowRight") {
-        e.preventDefault();
-        navigate(1);
-      } else if (e.key === "ArrowLeft") {
-        e.preventDefault();
-        navigate(-1);
-      }
+      if (e.key === "ArrowRight") { e.preventDefault(); navigate(1); }
+      else if (e.key === "ArrowLeft") { e.preventDefault(); navigate(-1); }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [navigate]);
 
-  // Touch swiping handler
   const touchStartX = useRef(0);
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-  };
+  const handleTouchStart = (e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX; };
   const handleTouchEnd = (e: React.TouchEvent) => {
     const diffX = e.changedTouches[0].clientX - touchStartX.current;
-    if (diffX < -50) {
-      navigate(1);
-    } else if (diffX > 50) {
-      navigate(-1);
-    }
+    if (diffX < -50) navigate(1);
+    else if (diffX > 50) navigate(-1);
   };
 
-  // Card slide transition variants
   const slideVariants = {
-    enter: (d: number) => ({
-      opacity: 0,
-      x: d > 0 ? 100 : -100,
-    }),
-    center: {
-      opacity: 1,
-      x: 0,
-    },
-    exit: (d: number) => ({
-      opacity: 0,
-      x: d > 0 ? -100 : 100,
-    }),
+    enter: (d: number) => ({ opacity: 0, x: d > 0 ? 52 : -52 }),
+    center: { opacity: 1, x: 0 },
+    exit: (d: number) => ({ opacity: 0, x: d > 0 ? -52 : 52 }),
   };
+
+  function getPolaroidStyles(count: number, idx: number) {
+    if (count === 1) return { rotate: "-2deg", xOffset: "0%", zIndex: 10 };
+    if (count === 2) {
+      return idx === 0
+        ? { rotate: "-7deg", xOffset: "-36%", zIndex: 10 }
+        : { rotate: "5deg", xOffset: "36%", zIndex: 12 };
+    }
+    if (idx === 0) return { rotate: "-9deg", xOffset: "-50%", zIndex: 10 };
+    if (idx === 1) return { rotate: "7deg", xOffset: "50%", zIndex: 11 };
+    return { rotate: "-1deg", xOffset: "0%", zIndex: 15 };
+  }
 
   return (
     <div
-      className="relative w-screen h-[100dvh] overflow-hidden select-none flex flex-col justify-between"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
       style={{
+        position: "relative",
+        width: "100vw",
+        height: "100dvh",
+        overflow: "hidden",
+        userSelect: "none",
+        display: "flex",
+        flexDirection: "column",
         background: "radial-gradient(circle at 50% 30%, #15101F 0%, #08070D 100%)",
         color: "#F0EBE2",
         fontFamily: "Inter, sans-serif",
       }}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
     >
-      {/* ── Subtle Background Washi Grid Lines ── */}
-      <div className="absolute inset-0 pointer-events-none opacity-[0.02] bg-[linear-gradient(rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.06)_1px,transparent_1px)] bg-[size:30px_30px]" />
+      {/* Background grid */}
+      <div style={{
+        position: "absolute", inset: 0, pointerEvents: "none", opacity: 0.015,
+        backgroundImage: "linear-gradient(rgba(255,255,255,0.06) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.06) 1px,transparent 1px)",
+        backgroundSize: "30px 30px",
+      }} />
+      {/* Corner glows */}
+      <div style={{
+        position: "absolute", top: 0, left: 0, width: "220px", height: "220px",
+        pointerEvents: "none", opacity: 0.18,
+        background: "radial-gradient(circle at 0% 0%, #C5A059 0%, transparent 70%)",
+      }} />
+      <div style={{
+        position: "absolute", bottom: 0, right: 0, width: "220px", height: "220px",
+        pointerEvents: "none", opacity: 0.1,
+        background: "radial-gradient(circle at 100% 100%, #4A2C6E 0%, transparent 70%)",
+      }} />
 
-      {/* ── Global Header (Japanese Subtitle / Mute Control) ── */}
-      <header className="relative z-30 w-full px-6 pt-6 flex items-center justify-between max-w-lg mx-auto">
-        <div className="flex flex-col">
-          <span className="text-[10px] tracking-[0.25em] text-[#C5A059] font-semibold uppercase">
+      {/* ─── HEADER ─────────────────────────────────────────────── */}
+      <header style={{
+        flexShrink: 0, width: "100%", maxWidth: "480px",
+        margin: "0 auto", padding: "20px 24px 0",
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        position: "relative", zIndex: 30,
+      }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+          <span style={{
+            fontSize: "10px", letterSpacing: "0.22em", color: "#C5A059",
+            fontWeight: 600, textTransform: "uppercase",
+          }}>
             {current.kana}
           </span>
-          <span className="text-[9px] tracking-widest text-[#F0EBE2]/40 font-medium uppercase mt-0.5">
+          <span style={{
+            fontSize: "9px", letterSpacing: "0.2em", color: "rgba(240,235,226,0.38)",
+            fontWeight: 500, textTransform: "uppercase",
+          }}>
             {current.romaji}
           </span>
         </div>
-
-        {/* Global Mute Toggle Button */}
         <button
           id="mute-toggle-btn"
           onClick={() => setMuted((prev) => !prev)}
-          className="w-10 h-10 rounded-full flex items-center justify-center bg-white/5 border border-white/10 text-white/60 hover:text-[#C5A059] hover:border-[#C5A059]/30 hover:bg-white/10 transition-all active:scale-95"
-          style={{ cursor: "pointer" }}
           aria-label={muted ? "Unmute Audio" : "Mute Audio"}
+          style={{
+            width: "38px", height: "38px", borderRadius: "50%",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
+            color: "rgba(240,235,226,0.55)", cursor: "pointer", transition: "all 0.2s ease", flexShrink: 0,
+          }}
         >
           {muted ? (
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
               <line x1="23" y1="9" x2="17" y2="15" />
               <line x1="17" y1="9" x2="23" y2="15" />
             </svg>
           ) : (
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
               <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
               <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
@@ -267,8 +273,11 @@ export default function MemoryLaneClient({ images }: MemoryLaneClientProps) {
         </button>
       </header>
 
-      {/* ── Main Viewport Stack ── */}
-      <main className="relative flex-1 w-full max-w-lg mx-auto flex flex-col justify-start px-6 pt-8 z-10 overflow-hidden">
+      {/* ─── MAIN (flex-1) ──────────────────────────────────────── */}
+      <main style={{
+        flex: 1, minHeight: 0, width: "100%", maxWidth: "480px",
+        margin: "0 auto", position: "relative", zIndex: 10, overflow: "hidden",
+      }}>
         <AnimatePresence initial={false} custom={dir} mode="wait">
           <motion.div
             key={current.id}
@@ -277,177 +286,217 @@ export default function MemoryLaneClient({ images }: MemoryLaneClientProps) {
             initial="enter"
             animate="center"
             exit="exit"
-            transition={{ duration: 0.45, ease: [0.25, 1, 0.5, 1] }}
-            className="w-full flex-1 flex flex-col justify-between"
+            transition={{ duration: 0.4, ease: [0.25, 1, 0.5, 1] }}
+            style={{
+              height: "100%", display: "flex", flexDirection: "column",
+              padding: "16px 24px 0",
+            }}
           >
-            {/* Upper Content Box */}
-            <div className="flex flex-col">
-              {/* Giant Serif Header */}
-              <h2
-                className="text-[2.6rem] md:text-[3.2rem] font-bold tracking-tight leading-[1.08] text-[#F0EBE2] mb-6 whitespace-pre-line"
-                style={{ fontFamily: "Noto Serif JP, Georgia, serif" }}
-              >
+            {/* TEXT BLOCK — natural height, no overlap */}
+            <div style={{ flexShrink: 0 }}>
+              {/* Heading */}
+              <h2 style={{
+                fontFamily: "Noto Serif JP, Georgia, serif",
+                fontSize: "clamp(1.85rem, 7.5vw, 2.75rem)",
+                fontWeight: 700, lineHeight: 1.1, letterSpacing: "-0.02em",
+                color: "#F0EBE2", whiteSpace: "pre-line", marginBottom: "16px",
+              }}>
                 {current.headline}
               </h2>
 
-              {/* Light Subtitle paragraph */}
-              <p className="text-[0.95rem] md:text-[1rem] leading-relaxed text-[#F0EBE2]/70 font-light max-w-sm mb-6">
+              {/* Body */}
+              <p style={{
+                fontSize: "clamp(0.85rem, 3.5vw, 0.9375rem)",
+                lineHeight: 1.72, color: "rgba(240,235,226,0.72)",
+                fontWeight: 300, marginBottom: "20px", maxWidth: "340px",
+              }}>
                 {current.sub}
               </p>
 
-              {/* Action Button (Enter the Lane / Walk Again) */}
+              {/* CTA Button */}
               {current.cta && (
                 <button
                   id={current.id === "cover" ? "cover-cta-btn" : "memory-replay-btn"}
-                  onClick={() => (current.id === "cover" ? navigate(1) : jumpToPage(0))}
-                  className="group inline-flex items-center gap-3 px-6 py-3.5 rounded-full text-xs font-semibold uppercase tracking-widest text-[#08070D] transition-all hover:scale-103 active:scale-97 mb-6"
+                  onClick={() => current.id === "cover" ? navigate(1) : jumpToPage(0)}
                   style={{
+                    display: "inline-flex", alignItems: "center", gap: "10px",
+                    padding: "12px 22px", borderRadius: "100px",
+                    fontSize: "11px", fontWeight: 600, letterSpacing: "0.12em",
+                    textTransform: "uppercase", color: "#08070D", border: "none",
                     background: "linear-gradient(135deg, #C5A059 0%, #B8924A 100%)",
-                    boxShadow: "0 6px 20px rgba(197, 160, 89, 0.25)",
-                    cursor: "pointer",
-                    width: "fit-content",
+                    boxShadow: "0 6px 20px rgba(197,160,89,0.3), 0 2px 6px rgba(197,160,89,0.15)",
+                    cursor: "pointer", marginBottom: "20px",
+                    transition: "transform 0.18s ease, box-shadow 0.18s ease",
                   }}
                 >
                   <span>{current.cta}</span>
-                  <span className="w-5 h-5 rounded-full bg-black/10 flex items-center justify-center transition-transform group-hover:translate-x-0.5">
+                  <span style={{
+                    width: "20px", height: "20px", borderRadius: "50%",
+                    background: "rgba(0,0,0,0.12)", display: "flex",
+                    alignItems: "center", justifyContent: "center",
+                  }}>
                     {current.id === "cover" ? (
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                         <path d="M5 12h14M12 5l7 7-7 7" />
                       </svg>
                     ) : (
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38" />
                       </svg>
                     )}
                   </span>
                 </button>
               )}
 
-              {/* Inline Vinyl Player Interface (Only on First Day Card) */}
+              {/* Audio Card — redesigned */}
               {current.hasAudio && (
-                <div className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 max-w-sm mb-6">
-                  {/* Rotating CD Disc */}
+                <div style={{
+                  display: "flex", alignItems: "center", gap: "14px",
+                  padding: "14px 16px", borderRadius: "16px",
+                  background: "linear-gradient(135deg, rgba(197,160,89,0.1) 0%, rgba(255,255,255,0.04) 100%)",
+                  border: "1px solid rgba(197,160,89,0.22)",
+                  boxShadow: "0 4px 20px rgba(0,0,0,0.35), inset 0 1px 0 rgba(197,160,89,0.12)",
+                  maxWidth: "340px", marginBottom: "20px", backdropFilter: "blur(8px)",
+                }}>
+                  {/* Vinyl Disc */}
                   <motion.button
                     id="luffy-vinyl-btn"
                     onClick={toggleLuffy}
                     animate={luffyPlaying ? { rotate: 360 } : { rotate: 0 }}
-                    transition={luffyPlaying ? { repeat: Infinity, duration: 6, ease: "linear" } : { duration: 0.3 }}
-                    className="relative w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0"
+                    transition={luffyPlaying
+                      ? { repeat: Infinity, duration: 5, ease: "linear" }
+                      : { duration: 0.3 }}
                     style={{
-                      background: "radial-gradient(circle, #2C2C2C 20%, #151515 21%, #090909 100%)",
-                      border: luffyPlaying ? "2px solid #C5A059" : "2px solid rgba(197, 160, 89, 0.4)",
-                      boxShadow: luffyPlaying ? "0 0 20px rgba(197, 160, 89, 0.25)" : "none",
-                      cursor: "pointer",
+                      width: "52px", height: "52px", borderRadius: "50%", flexShrink: 0,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      background: "radial-gradient(circle at 40% 35%, #3A3A3A 0%, #1A1A1A 45%, #090909 100%)",
+                      border: luffyPlaying ? "2px solid #C5A059" : "2px solid rgba(197,160,89,0.35)",
+                      boxShadow: luffyPlaying
+                        ? "0 0 18px rgba(197,160,89,0.35), 0 4px 12px rgba(0,0,0,0.5)"
+                        : "0 4px 12px rgba(0,0,0,0.4)",
+                      cursor: "pointer", position: "relative",
+                      transition: "border-color 0.3s ease, box-shadow 0.3s ease",
                     }}
                   >
-                    <div className="w-4 h-4 rounded-full bg-[#B7282E] flex items-center justify-center">
+                    <div style={{ position: "absolute", inset: "6px", borderRadius: "50%", border: "1px solid rgba(255,255,255,0.07)" }} />
+                    <div style={{ position: "absolute", inset: "12px", borderRadius: "50%", border: "1px solid rgba(255,255,255,0.04)" }} />
+                    <div style={{
+                      width: "16px", height: "16px", borderRadius: "50%",
+                      background: "radial-gradient(circle, #C5302A 0%, #8E1E23 100%)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      boxShadow: "0 1px 4px rgba(0,0,0,0.5)", zIndex: 2,
+                    }}>
                       {luffyPlaying ? (
-                        <svg width="6" height="6" viewBox="0 0 24 24" fill="white">
-                          <rect x="4" y="4" width="4" height="16" />
-                          <rect x="16" y="4" width="4" height="16" />
+                        <svg width="5" height="5" viewBox="0 0 24 24" fill="white">
+                          <rect x="4" y="4" width="5" height="16" rx="1" />
+                          <rect x="15" y="4" width="5" height="16" rx="1" />
                         </svg>
                       ) : (
-                        <svg width="6" height="6" viewBox="0 0 24 24" fill="white" style={{ marginLeft: "1px" }}>
+                        <svg width="5" height="5" viewBox="0 0 24 24" fill="white" style={{ marginLeft: "1px" }}>
                           <path d="M8 5v14l11-7z" />
                         </svg>
                       )}
                     </div>
                   </motion.button>
 
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-[#F0EBE2] truncate">
+                  {/* Track Info */}
+                  <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: "3px" }}>
+                    <p style={{
+                      fontSize: "13px", fontWeight: 600, color: "#F0EBE2",
+                      letterSpacing: "0.01em", overflow: "hidden",
+                      textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    }}>
                       Luffy&apos;s Theme Song
                     </p>
-                    <p className="text-[10px] text-[#F0EBE2]/40 truncate mt-0.5">
-                      Performed by Gowrisankar Sensei on Day One
+                    <p style={{
+                      fontSize: "10px", color: "rgba(240,235,226,0.45)",
+                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    }}>
+                      Performed by Gowrisankar Sensei · Day One
                     </p>
                     <button
                       id="luffy-song-play-btn"
                       onClick={toggleLuffy}
-                      className="text-[10px] font-bold uppercase tracking-wider text-[#C5A059] mt-1.5 inline-block"
-                      style={{ cursor: "pointer" }}
+                      style={{
+                        display: "inline-flex", alignItems: "center", gap: "5px",
+                        fontSize: "10px", fontWeight: 700, letterSpacing: "0.1em",
+                        textTransform: "uppercase", color: luffyPlaying ? "#F0EBE2" : "#C5A059",
+                        background: "none", border: "none", padding: 0, cursor: "pointer",
+                        width: "fit-content", marginTop: "1px", transition: "color 0.2s ease",
+                      }}
                     >
                       {luffyPlaying ? "Pause Track" : "Play Track"}
                     </button>
+                  </div>
+
+                  {/* Waveform */}
+                  <div style={{ display: "flex", alignItems: "center", gap: "2px", flexShrink: 0 }}>
+                    {[0.4, 0.7, 1, 0.6, 0.85, 0.5, 0.9].map((h, i) => (
+                      <motion.div
+                        key={i}
+                        animate={luffyPlaying ? { scaleY: [h, h * 0.4 + 0.2, h] } : { scaleY: 0.25 }}
+                        transition={luffyPlaying ? {
+                          duration: 0.55 + i * 0.09, repeat: Infinity,
+                          ease: "easeInOut", delay: i * 0.07,
+                        } : { duration: 0.3 }}
+                        style={{
+                          width: "3px", height: "20px", borderRadius: "2px",
+                          background: luffyPlaying
+                            ? "linear-gradient(to top, #C5A059, rgba(197,160,89,0.35))"
+                            : "rgba(197,160,89,0.18)",
+                          transformOrigin: "center",
+                        }}
+                      />
+                    ))}
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Bottom Section: Overlapping Scattered Polaroid Collage Layout */}
-            <div className="flex-1 relative min-h-[220px] max-h-[340px] w-full mt-4 flex items-end">
+            {/* PHOTO COLLAGE — flex-1, overflow hidden, never overlaps text above */}
+            <div style={{
+              flex: 1, minHeight: 0, position: "relative", overflow: "hidden",
+            }}>
               {current.photos && current.photos.length > 0 && (
-                <div className="absolute inset-x-0 bottom-4 h-full flex items-end justify-center">
+                <div style={{
+                  position: "absolute", inset: 0,
+                  display: "flex", alignItems: "flex-end", justifyContent: "center",
+                  paddingBottom: "8px",
+                }}>
                   {current.photos.map((src, idx) => {
-                    // Position setups based on collage photo count to match screenshots
-                    let rotate = "0deg";
-                    let zIndex = 10;
-                    let bottom = "0px";
-                    let leftOffset = "50%";
-                    let scale = "1";
-
-                    if (current.photos.length === 1) {
-                      rotate = "-2deg";
-                      bottom = "10px";
-                      leftOffset = "50%";
-                    } else if (current.photos.length === 2) {
-                      if (idx === 0) {
-                        rotate = "-6deg";
-                        leftOffset = "35%";
-                        bottom = "15px";
-                        zIndex = 10;
-                      } else {
-                        rotate = "4deg";
-                        leftOffset = "65%";
-                        bottom = "5px";
-                        zIndex = 12;
-                      }
-                    } else if (current.photos.length >= 3) {
-                      if (idx === 0) {
-                        rotate = "-8deg";
-                        leftOffset = "26%";
-                        bottom = "20px";
-                        zIndex = 10;
-                        scale = "0.95";
-                      } else if (idx === 1) {
-                        rotate = "6deg";
-                        leftOffset = "74%";
-                        bottom = "30px";
-                        zIndex = 11;
-                        scale = "0.95";
-                      } else {
-                        rotate = "-1deg";
-                        leftOffset = "50%";
-                        bottom = "0px";
-                        zIndex = 15;
-                        scale = "1.05";
-                      }
-                    }
-
+                    const { rotate, xOffset, zIndex } = getPolaroidStyles(current.photos.length, idx);
                     return (
                       <motion.div
-                        key={idx}
-                        initial={{ opacity: 0, y: 30, scale: 0.9 }}
+                        key={`${current.id}-photo-${idx}`}
+                        initial={{ opacity: 0, y: 40, scale: 0.88 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
-                        className="absolute w-[150px] h-[200px] md:w-[170px] md:h-[220px] bg-[#FAF8F5] p-2.5 pb-8 rounded-xl shadow-[0_12px_28px_rgba(0,0,0,0.5)] border border-white/5 flex flex-col justify-between"
+                        transition={{ duration: 0.55, delay: idx * 0.1, ease: [0.22, 1, 0.36, 1] }}
                         style={{
-                          left: leftOffset,
-                          bottom: bottom,
-                          transform: `translateX(-50%) rotate(${rotate}) scale(${scale})`,
-                          zIndex: zIndex,
+                          position: "absolute", bottom: 0,
+                          width: "clamp(118px, 31vw, 152px)",
+                          height: "clamp(152px, 40vw, 200px)",
+                          background: "#FAF8F5",
+                          padding: "7px 7px 26px",
+                          borderRadius: "12px",
+                          boxShadow: "0 14px 36px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.35)",
+                          border: "1px solid rgba(255,255,255,0.06)",
+                          transform: `translateX(${xOffset}) rotate(${rotate})`,
                           transformOrigin: "bottom center",
+                          zIndex,
                         }}
                       >
-                        <div className="relative w-full h-full bg-[#EBE7DF] rounded-lg overflow-hidden flex-1">
+                        <div style={{
+                          position: "relative", width: "100%", height: "100%",
+                          borderRadius: "6px", overflow: "hidden", background: "#EBE7DF",
+                        }}>
                           <Image
                             src={src}
                             alt="Class Memory"
                             fill
-                            sizes="170px"
+                            sizes="(max-width: 480px) 152px, 152px"
                             className="object-cover object-top"
                           />
                         </div>
-                        {/* Polaroid white edge bottom spacing is created via pb-8 */}
                       </motion.div>
                     );
                   })}
@@ -458,21 +507,37 @@ export default function MemoryLaneClient({ images }: MemoryLaneClientProps) {
         </AnimatePresence>
       </main>
 
-      {/* ── Footer Centered Pagination Pill Container ── */}
-      <footer className="relative z-30 w-full pb-8 pt-4 flex items-center justify-center">
-        <div className="flex items-center gap-3 px-5 py-2.5 rounded-full bg-black/40 border border-white/10 backdrop-blur-xl">
+      {/* ─── FOOTER / PAGINATION ────────────────────────────────── */}
+      <footer style={{
+        flexShrink: 0, width: "100%", padding: "10px 24px 18px",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        position: "relative", zIndex: 30,
+      }}>
+        <div style={{
+          display: "flex", alignItems: "center", gap: "6px",
+          padding: "8px 16px", borderRadius: "100px",
+          background: "rgba(0,0,0,0.45)", border: "1px solid rgba(255,255,255,0.08)",
+          backdropFilter: "blur(16px)",
+        }}>
           {cards.map((c, i) => (
             <button
               key={c.id}
+              id={`pagination-btn-${i + 1}`}
               onClick={() => jumpToPage(i)}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-all active:scale-90"
-              style={{
-                background: i === page ? "#F0EBE2" : "transparent",
-                color: i === page ? "#08070D" : "rgba(240, 235, 226, 0.4)",
-                border: "none",
-                cursor: "pointer",
-              }}
               aria-label={`Go to section ${i + 1}`}
+              style={{
+                width: "32px", height: "32px", borderRadius: "50%",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: "11px", fontWeight: 600, letterSpacing: "0.02em",
+                background: i === page ? "#F0EBE2" : "transparent",
+                color: i === page ? "#08070D" : "rgba(240,235,226,0.38)",
+                border: i === page
+                  ? "1.5px solid rgba(240,235,226,0.8)"
+                  : "1.5px solid rgba(255,255,255,0.07)",
+                cursor: "pointer",
+                transition: "background 0.25s ease, color 0.25s ease, transform 0.2s ease",
+                transform: i === page ? "scale(1.12)" : "scale(1)",
+              }}
             >
               {i + 1}
             </button>
