@@ -28,34 +28,55 @@ const AudioCtx = createContext<AudioContextType | null>(null);
 
 export function AudioProvider({ children }: { children: React.ReactNode }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const registeredSrc = useRef<string>("");
+  const volumeRef = useRef<number>(0.75);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolumeState] = useState(0.75);
 
+  /**
+   * registerAudio — idempotent. Only creates/updates the Audio element when
+   * src changes. Uses refs so the function identity never changes, preventing
+   * AudioPlayer's useEffect from re-firing on re-renders.
+   */
   const registerAudio = useCallback((src: string) => {
-    if (!audioRef.current) {
-      audioRef.current = new Audio(src);
-    } else {
-      audioRef.current.src = src;
+    // Already registered the same source — do nothing (fixes duplicate mount)
+    if (registeredSrc.current === src && audioRef.current) return;
+
+    // Tear down existing Audio element before creating a new one
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = "";
+      audioRef.current.load();
     }
-    const audio = audioRef.current;
-    audio.volume = volume;
+
+    const audio = new Audio(src);
+    audio.volume = volumeRef.current;
+    audioRef.current = audio;
+    registeredSrc.current = src;
 
     const onTimeUpdate = () => setCurrentTime(audio.currentTime);
-    const onDurationChange = () => setDuration(audio.duration);
+    const onDurationChange = () => {
+      if (isFinite(audio.duration)) setDuration(audio.duration);
+    };
     const onEnded = () => setIsPlaying(false);
+    const onPlay = () => setIsPlaying(true);
+    const onPause = () => setIsPlaying(false);
 
     audio.addEventListener("timeupdate", onTimeUpdate);
     audio.addEventListener("durationchange", onDurationChange);
     audio.addEventListener("ended", onEnded);
-  }, [volume]);
+    audio.addEventListener("play", onPlay);
+    audio.addEventListener("pause", onPause);
+    // No cleanup return — cleanup happens when src changes or on unmount
+  }, []); // Stable: no dependencies, uses refs only
 
   const play = useCallback(async () => {
     if (audioRef.current) {
       try {
         await audioRef.current.play();
-        setIsPlaying(true);
+        // State will be set by the 'play' event listener
       } catch {
         setIsPlaying(false);
       }
@@ -65,18 +86,21 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const pause = useCallback(() => {
     if (audioRef.current) {
       audioRef.current.pause();
-      setIsPlaying(false);
+      // State will be set by the 'pause' event listener
     }
   }, []);
 
   const toggle = useCallback(() => {
-    if (isPlaying) pause();
-    else play();
-  }, [isPlaying, play, pause]);
+    if (!audioRef.current) return;
+    if (audioRef.current.paused) play();
+    else pause();
+  }, [play, pause]);
 
   const setVolume = useCallback((v: number) => {
-    setVolumeState(v);
-    if (audioRef.current) audioRef.current.volume = v;
+    const clamped = Math.max(0, Math.min(1, v));
+    volumeRef.current = clamped;
+    setVolumeState(clamped);
+    if (audioRef.current) audioRef.current.volume = clamped;
   }, []);
 
   const seek = useCallback((t: number) => {
@@ -95,12 +119,14 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Cleanup on unmount
+  // Full cleanup on provider unmount
   useEffect(() => {
     return () => {
       if (audioRef.current) {
         audioRef.current.pause();
+        audioRef.current.src = "";
         audioRef.current = null;
+        registeredSrc.current = "";
       }
     };
   }, []);
