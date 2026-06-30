@@ -1,754 +1,484 @@
 "use client";
 
-import {
-  useEffect, useRef, useState, useCallback, useMemo,
-} from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import Image from "next/image";
-import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
-
-/* ─── Types ──────────────────────────────────────────────────── */
-interface MemoryCard {
-  id: string;
-  type: "cover" | "firstDay" | "narrative" | "photo" | "gratitude" | "outro";
-  label: string;
-  title: string;
-  body: string;
-  image?: string;
-  audioBtn?: boolean;
-  replayBtn?: boolean;
-}
+import { motion, AnimatePresence } from "framer-motion";
 
 interface MemoryLaneClientProps {
   images: string[];
 }
 
-/* ─── Helper: format card index ─────────────────────────────── */
-const pad = (n: number) => String(n).padStart(2, "0");
-
 export default function MemoryLaneClient({ images }: MemoryLaneClientProps) {
-  /* ── State ── */
-  const [index, setIndex] = useState(0);
-  const [direction, setDirection] = useState(0);
+  const [page, setPage] = useState(0);
+  const [dir, setDir] = useState(0);
   const [luffyPlaying, setLuffyPlaying] = useState(false);
-  const [audioReady, setAudioReady] = useState(false);
+  const [muted, setMuted] = useState(false);
 
-  /* ── Audio refs ── */
-  const bgRef  = useRef<HTMLAudioElement | null>(null);
+  const bgRef = useRef<HTMLAudioElement | null>(null);
   const songRef = useRef<HTMLAudioElement | null>(null);
+  const mutedRef = useRef(false);
 
-  /* ── Build cards dynamically from image list ── */
-  const cards: MemoryCard[] = useMemo(() => [
-    // ─ Cover card — uses first image as full-bleed
+  // Sync mute state ref
+  useEffect(() => {
+    mutedRef.current = muted;
+    if (bgRef.current) bgRef.current.muted = muted;
+    if (songRef.current) songRef.current.muted = muted;
+  }, [muted]);
+
+  // Handle card text & photo distribution
+  const cards = useMemo(() => [
     {
       id: "cover",
-      type: "cover",
-      label: "Preface",
-      title: "A Sensei's Legacy",
-      body: "A teacher's influence is not merely written on tablets of stone, but gently etched onto the hearts of those who sat before them. What follows is a collection of the moments, melodies, and lessons shared with Gowrisankar Sensei — a tribute to the warmth, patience, and stories that turned an ordinary classroom into something worth remembering.",
-      image: images[0],
+      num: 1,
+      kana: "ゴウリサンカル先生へ",
+      romaji: "GOWRISANKAR SENSEI",
+      headline: "This is for\nyou, Sensei.",
+      sub: "A small memory lane for the teacher who made Japanese feel warmer, closer, and easier to love.",
+      cta: "Enter the lane",
+      photos: images.slice(0, 1),
     },
-    // ─ First Day — audio card
     {
       id: "first-day",
-      type: "firstDay",
-      label: "Chapter I",
-      title: "The First Day",
-      body: "Before a single textbook was opened, before a syllabus was recited, Gowrisankar Sensei did something no one expected — he sang. Standing at the front of the class on day one, he delivered a heartfelt, completely unprompted rendition of Luffy's theme song from One Piece. The anxiety that had settled over a room full of beginners dissolved in an instant. He followed it with a story — an old one, personal, vivid — that wove itself around the meaning of a kanji in a way no definition ever could. In that first hour, it was clear: this was not going to be a typical class.",
-      audioBtn: true,
+      num: 2,
+      kana: "最初の日",
+      romaji: "THE FIRST DAY",
+      headline: "A Song of\nAdventure.",
+      sub: "Before a single textbook opened, you stood at the front of the room and sang. A joyful rendition of Luffy's theme song from One Piece. All academic anxiety evaporated instantly. We knew right then that this class would be a true adventure.",
+      cta: null,
+      photos: images.slice(1, 2),
+      hasAudio: true,
     },
-    // ─ More than a Sensei
     {
-      id: "more-than",
-      type: "narrative",
-      label: "Chapter II",
-      title: "More than a Teacher",
-      body: "There is a particular kind of calm that a few rare people carry with them — the kind that does not announce itself, but simply fills a room. Gowrisankar Sensei had that. Composed, unhurried, steady — the quiet authority of someone who has nothing to prove. Paired with a smile that made even the most tangled grammar feel approachable, his presence was its own form of pedagogy. He had a gift for making the body part of the learning: acting out verbs, physiclizing vocabulary, turning rote memorization into something you could feel. His joy in the language was contagious. When he smiled, the whole class found itself smiling too.",
+      id: "calm-presence",
+      num: 3,
+      kana: "穏やかな存在",
+      romaji: "MORE THAN A TEACHER",
+      headline: "A Reassuring\nPresence.",
+      sub: "Carrying the quiet composure of Dhoni, your presence was defined by steady warmth and a reassuring smile. You made complex grammar feel simple, encouraging us to act out verbs and bring the vocabulary to life.",
+      cta: null,
+      photos: images.slice(0, 2),
     },
-    // ─ Dynamic photo cards — all remaining images
-    ...images.slice(1).map((src, i): MemoryCard => ({
-      id: `photo-${i}`,
-      type: "photo",
-      label: `Memory ${pad(i + 1)}`,
-      title: "Captured in Time",
-      body: "Moments like these — unguarded, unplanned — are the ones that last. The laughter between vocabulary drills, the expressions of someone finally understanding something difficult, the quiet satisfaction of a lesson well-taught. These photographs hold what no lesson plan could: the texture of the time we shared.",
-      image: src,
-    })),
-    // ─ Gratitude
     {
       id: "gratitude",
-      type: "gratitude",
-      label: "Chapter III",
-      title: "A Deep Gratitude",
-      body: "We were fortunate — genuinely so. The exam strategies he offered will stay useful long after this course concludes, but they are only a fraction of what he gave us. More than techniques and tips, he gave us the rare experience of being taught by someone who treats their students as equals in curiosity. He did not lecture from a distance. He worked alongside us — through confusion, breakthrough, and everything between. His consistency, his patience, his refusal to make anyone feel small: these were gifts, and we received them.",
+      num: 4,
+      kana: "深い感謝",
+      romaji: "DEEP GRATITUDE",
+      headline: "A Profound\nThank You.",
+      sub: "We are deeply grateful for your egalitarian approach to teaching. You never lectured from a pedestal, but worked alongside us like a fellow student—sharing in our breakthroughs, our confusions, and our growth.",
+      cta: null,
+      photos: images.slice(1, 3),
     },
-    // ─ Outro
     {
-      id: "outro",
-      type: "outro",
-      label: "Farewell",
-      title: "Sayonara, Sensei",
-      body: "This chapter ends, as all good things must. But what a sensei truly teaches never quite leaves — it lives in the way a student looks at a difficult thing with curiosity instead of fear, in the instinct to find the story inside the subject. Your smile will stay with this class. The lessons go far beyond the language. We bid you farewell with our deepest gratitude, our warmest wishes, and the hope that wherever you go next, you carry some measure of what you gave us. We will miss you.",
-      replayBtn: true,
+      id: "farewell",
+      num: 5,
+      kana: "さようなら",
+      romaji: "We will miss you, Sensei.",
+      headline: "We will miss\nyou, Sensei.",
+      sub: "Thank you for every class, every correction, every smile, and every moment where you made us believe we could do better.",
+      cta: "Walk again",
+      photos: images.slice(0, 3),
     },
   ], [images]);
 
   const total = cards.length;
-  const current = cards[index];
+  const current = cards[page];
 
-  /* ─────────────────────── Audio engine ─────────────────────── */
+  // Initialize and manage audio contexts
   useEffect(() => {
-    const bg   = new Audio("/assets/audio/background.mp3");
+    const bg = new Audio("/assets/audio/background.mp3");
     const song = new Audio("/assets/audio/audio.mp3");
 
-    bg.loop   = true;
-    bg.volume = 0.13;
-    song.volume = 0.8;
+    bg.loop = true;
+    bg.volume = 0.15;
+    song.volume = 0.85;
 
-    bgRef.current   = bg;
+    bgRef.current = bg;
     songRef.current = song;
 
-    const onEnded = () => {
+    const handleSongEnded = () => {
       setLuffyPlaying(false);
-      bg.play().catch(() => {});
+      if (!mutedRef.current) {
+        bg.play().catch(() => {});
+      }
     };
-    song.addEventListener("ended", onEnded);
+    song.addEventListener("ended", handleSongEnded);
 
-    // Try autoplay; arm on first interaction if blocked
-    bg.play().then(() => setAudioReady(true)).catch(() => {});
+    // Play background music on load (browsers may require interaction)
+    bg.play().catch(() => {});
 
-    const arm = () => {
-      if (bg.paused) bg.play().then(() => setAudioReady(true)).catch(() => {});
-      window.removeEventListener("pointerdown", arm);
+    // Interaction fallback to start audio if blocked
+    const startOnInteraction = () => {
+      if (bg.paused && !mutedRef.current) {
+        bg.play().catch(() => {});
+      }
+      window.removeEventListener("pointerdown", startOnInteraction);
     };
-    window.addEventListener("pointerdown", arm, { once: true });
+    window.addEventListener("pointerdown", startOnInteraction, { once: true });
 
     return () => {
-      song.removeEventListener("ended", onEnded);
-      bg.pause();  bg.src   = "";
-      song.pause(); song.src = "";
-      bgRef.current   = null;
+      song.removeEventListener("ended", handleSongEnded);
+      bg.pause();
+      song.pause();
+      bgRef.current = null;
       songRef.current = null;
     };
   }, []);
 
-  // Stop Luffy song when leaving Card 2
-  useEffect(() => {
-    if (current.id !== "first-day" && luffyPlaying) {
-      songRef.current?.pause();
-      if (songRef.current) songRef.current.currentTime = 0;
-      setLuffyPlaying(false);
-      bgRef.current?.play().catch(() => {});
-    }
-  }, [current.id, luffyPlaying]);
-
+  // Sync background music stop/play when Luffy's song is toggled or page changes
   const toggleLuffy = useCallback(() => {
-    const bg   = bgRef.current;
+    const bg = bgRef.current;
     const song = songRef.current;
     if (!bg || !song) return;
 
     if (luffyPlaying) {
       song.pause();
       setLuffyPlaying(false);
-      bg.play().catch(() => {});
+      if (!mutedRef.current) {
+        bg.play().catch(() => {});
+      }
     } else {
       bg.pause();
       song.play()
         .then(() => setLuffyPlaying(true))
-        .catch(() => bg.play().catch(() => {}));
+        .catch(() => {
+          if (!mutedRef.current) bg.play().catch(() => {});
+        });
     }
   }, [luffyPlaying]);
 
-  /* ──────────────────── Navigation ───────────────────────────── */
-  const navigate = useCallback((dir: 1 | -1) => {
-    setIndex(prev => {
-      const next = prev + dir;
+  // Clean up Luffy audio when navigating away from the First Day card
+  useEffect(() => {
+    if (current.id !== "first-day" && luffyPlaying) {
+      songRef.current?.pause();
+      if (songRef.current) songRef.current.currentTime = 0;
+      setLuffyPlaying(false);
+      if (!mutedRef.current) {
+        bgRef.current?.play().catch(() => {});
+      }
+    }
+  }, [current.id, luffyPlaying]);
+
+  // Navigation handlers
+  const navigate = useCallback((d: 1 | -1) => {
+    setPage((prev) => {
+      const next = prev + d;
       if (next < 0 || next >= total) return prev;
-      setDirection(dir);
+      setDir(d);
       return next;
     });
   }, [total]);
 
-  // Keyboard
+  const jumpToPage = useCallback((index: number) => {
+    setDir(index > page ? 1 : -1);
+    setPage(index);
+  }, [page]);
+
+  // Keyboard navigation listeners
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "ArrowRight" || e.key === "ArrowDown") { e.preventDefault(); navigate(1); }
-      if (e.key === "ArrowLeft"  || e.key === "ArrowUp")   { e.preventDefault(); navigate(-1); }
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "ArrowRight") {
+        e.preventDefault();
+        navigate(1);
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        navigate(-1);
+      }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [navigate]);
 
-  // Swipe (touch + mouse drag)
-  const dragX = useMotionValue(0);
-  const onDragEnd = useCallback((_: unknown, info: { offset: { x: number }; velocity: { x: number } }) => {
-    const { offset, velocity } = info;
-    if (offset.x < -60 || velocity.x < -400) navigate(1);
-    else if (offset.x > 60 || velocity.x > 400) navigate(-1);
-    dragX.set(0);
-  }, [navigate, dragX]);
-
-  /* ────────────────── Card-specific backgrounds ─────────────── */
-  const cardBg: Record<MemoryCard["type"], string> = {
-    cover:     "linear-gradient(160deg, #0B1220 0%, #1A2540 100%)",
-    firstDay:  "linear-gradient(135deg, #101820 0%, #0F1C30 100%)",
-    narrative: "linear-gradient(150deg, #F7F3ED 0%, #EDE5D8 100%)",
-    photo:     "#0B0E14",
-    gratitude: "linear-gradient(145deg, #FAF7F2 0%, #F0E9DC 100%)",
-    outro:     "linear-gradient(155deg, #0A0D14 0%, #111827 100%)",
+  // Touch swiping handler
+  const touchStartX = useRef(0);
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    const diffX = e.changedTouches[0].clientX - touchStartX.current;
+    if (diffX < -50) {
+      navigate(1);
+    } else if (diffX > 50) {
+      navigate(-1);
+    }
   };
 
-  const isDark = ["cover", "firstDay", "photo", "outro"].includes(current.type);
-
-  /* ─────────────── Framer variants ──────────────────────────── */
-  const variants = {
-    enter:  (d: number) => ({ opacity: 0, x: d > 0 ? 80 : -80, scale: 0.97 }),
-    center: { opacity: 1, x: 0, scale: 1 },
-    exit:   (d: number) => ({ opacity: 0, x: d > 0 ? -80 : 80, scale: 0.97 }),
+  // Card slide transition variants
+  const slideVariants = {
+    enter: (d: number) => ({
+      opacity: 0,
+      x: d > 0 ? 100 : -100,
+    }),
+    center: {
+      opacity: 1,
+      x: 0,
+    },
+    exit: (d: number) => ({
+      opacity: 0,
+      x: d > 0 ? -100 : 100,
+    }),
   };
 
   return (
     <div
-      className="relative w-screen h-screen overflow-hidden"
-      style={{ background: "#090C12", userSelect: "none" }}
+      className="relative w-screen h-[100dvh] overflow-hidden select-none flex flex-col justify-between"
+      style={{
+        background: "radial-gradient(circle at 50% 30%, #15101F 0%, #08070D 100%)",
+        color: "#F0EBE2",
+        fontFamily: "Inter, sans-serif",
+      }}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
     >
-      {/* ── Ambient orb — shifts per card type ── */}
-      <motion.div
-        className="absolute pointer-events-none"
-        style={{ borderRadius: "50%", filter: "blur(90px)", zIndex: 0 }}
-        animate={{
-          background: isDark
-            ? "radial-gradient(circle, rgba(197,160,89,0.07) 0%, transparent 70%)"
-            : "radial-gradient(circle, rgba(42,58,92,0.08) 0%, transparent 70%)",
-          width:  "80vw",
-          height: "80vw",
-          top:    isDark ? "10%" : "30%",
-          left:   isDark ? "20%" : "10%",
-        }}
-        transition={{ duration: 1.2, ease: "easeInOut" }}
-      />
+      {/* ── Subtle Background Washi Grid Lines ── */}
+      <div className="absolute inset-0 pointer-events-none opacity-[0.02] bg-[linear-gradient(rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.06)_1px,transparent_1px)] bg-[size:30px_30px]" />
 
-      {/* ── Full-screen card stack ── */}
-      <AnimatePresence initial={false} custom={direction} mode="wait">
-        <motion.div
-          key={current.id}
-          custom={direction}
-          variants={variants}
-          initial="enter"
-          animate="center"
-          exit="exit"
-          transition={{ duration: 0.55, ease: [0.32, 0, 0.22, 1] }}
-          className="absolute inset-0 z-10"
-          drag="x"
-          dragConstraints={{ left: 0, right: 0 }}
-          dragElastic={0.12}
-          onDragEnd={onDragEnd}
-          style={{ x: dragX }}
-        >
-          {/* ───── COVER card ───── */}
-          {current.type === "cover" && current.image && (
-            <div className="relative w-full h-full">
-              <Image
-                src={current.image}
-                alt="Gowrisankar Sensei"
-                fill
-                priority
-                sizes="100vw"
-                className="object-cover"
-                style={{ filter: "brightness(0.55) saturate(0.85)" }}
-              />
-              {/* Gradient scrim — text legibility */}
-              <div
-                className="absolute inset-0"
-                style={{
-                  background:
-                    "linear-gradient(to top, rgba(8,10,18,0.96) 0%, rgba(8,10,18,0.5) 40%, rgba(8,10,18,0.15) 70%, transparent 100%)",
-                }}
-              />
-              {/* Cover text */}
-              <div className="absolute inset-0 flex flex-col justify-end px-8 pb-28 md:px-16 md:pb-32 max-w-3xl">
-                <motion.p
-                  initial={{ opacity: 0, y: 14 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2, duration: 0.6 }}
-                  style={{ fontFamily: "Inter, sans-serif", fontSize: "0.65rem", letterSpacing: "0.22em", color: "#C5A059", textTransform: "uppercase", marginBottom: "18px" }}
-                >
-                  {current.label} — A Tribute
-                </motion.p>
-                <motion.h1
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.35, duration: 0.7 }}
-                  style={{ fontFamily: "Noto Serif JP, Georgia, serif", fontSize: "clamp(2.4rem,6vw,4.5rem)", fontWeight: 300, color: "#F0EBE2", lineHeight: 1.1, marginBottom: "22px", letterSpacing: "-0.02em" }}
-                >
-                  {current.title}
-                </motion.h1>
-                <motion.p
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.6, duration: 0.8 }}
-                  style={{ fontFamily: "Inter, sans-serif", fontSize: "clamp(0.875rem,1.6vw,1.05rem)", color: "rgba(240,235,226,0.72)", lineHeight: 1.85, maxWidth: "560px", fontWeight: 300 }}
-                >
-                  {current.body}
-                </motion.p>
-              </div>
-            </div>
-          )}
-
-          {/* ───── FIRST DAY card ───── */}
-          {current.type === "firstDay" && (
-            <div
-              className="relative w-full h-full flex flex-col md:flex-row"
-              style={{ background: cardBg.firstDay }}
-            >
-              {/* Left panel — vinyl player */}
-              <div className="relative flex-none w-full md:w-2/5 flex flex-col items-center justify-center p-10 order-2 md:order-1"
-                style={{ background: "rgba(0,0,0,0.2)" }}
-              >
-                {/* Pulsing rings when playing */}
-                {luffyPlaying && (
-                  <>
-                    {[1.8, 2.6, 3.4].map((scale, i) => (
-                      <motion.div
-                        key={i}
-                        className="absolute rounded-full border border-[#C5A059]/20"
-                        style={{ width: "140px", height: "140px" }}
-                        animate={{ scale: [1, scale], opacity: [0.5, 0] }}
-                        transition={{ duration: 2 + i * 0.4, repeat: Infinity, delay: i * 0.4, ease: "easeOut" }}
-                      />
-                    ))}
-                  </>
-                )}
-
-                {/* Vinyl disc */}
-                <motion.button
-                  id="luffy-vinyl-btn"
-                  onClick={toggleLuffy}
-                  animate={luffyPlaying ? { rotate: 360 } : { rotate: 0 }}
-                  transition={luffyPlaying
-                    ? { repeat: Infinity, duration: 8, ease: "linear" }
-                    : { duration: 0.4, ease: "easeOut" }
-                  }
-                  className="relative w-36 h-36 rounded-full focus:outline-none"
-                  style={{
-                    background: "radial-gradient(circle at 38% 38%, #3A3A3A 0%, #1A1A1A 55%, #111 100%)",
-                    boxShadow: luffyPlaying
-                      ? "0 0 0 3px #C5A059, 0 0 40px rgba(197,160,89,0.25), inset 0 0 30px rgba(0,0,0,0.6)"
-                      : "0 0 0 2px rgba(197,160,89,0.5), inset 0 0 30px rgba(0,0,0,0.5)",
-                    cursor: "pointer",
-                  }}
-                  aria-label={luffyPlaying ? "Pause Song" : "Play Luffy's Song"}
-                >
-                  {/* Groove rings */}
-                  {[0.72, 0.56, 0.42].map((r, i) => (
-                    <div key={i} className="absolute inset-0 rounded-full"
-                      style={{
-                        border: "1px solid rgba(255,255,255,0.06)",
-                        margin: `${(1 - r) * 50}%`,
-                        borderRadius: "50%",
-                      }}
-                    />
-                  ))}
-                  {/* Center label */}
-                  <div
-                    className="absolute w-12 h-12 rounded-full flex flex-col items-center justify-center"
-                    style={{
-                      top: "50%", left: "50%",
-                      transform: "translate(-50%, -50%)",
-                      background: "#B7282E",
-                    }}
-                  >
-                    {luffyPlaying ? (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
-                        <rect x="5" y="4" width="4" height="16" rx="1" />
-                        <rect x="15" y="4" width="4" height="16" rx="1" />
-                      </svg>
-                    ) : (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="white" style={{ marginLeft: 2 }}>
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
-                    )}
-                  </div>
-                </motion.button>
-
-                <p
-                  className="mt-6 text-center"
-                  style={{ fontFamily: "Inter, sans-serif", fontSize: "0.625rem", letterSpacing: "0.18em", textTransform: "uppercase", color: "#C5A059", opacity: 0.85 }}
-                >
-                  {luffyPlaying ? "Now Playing" : "Tap to Play"}
-                </p>
-                <p
-                  className="mt-1.5 text-center"
-                  style={{ fontFamily: "Noto Serif JP, serif", fontSize: "0.8rem", color: "rgba(255,255,255,0.45)", maxWidth: "170px" }}
-                >
-                  Luffy&apos;s Theme — as sung on Day One
-                </p>
-              </div>
-
-              {/* Right panel — narrative */}
-              <div className="flex-1 flex flex-col justify-center px-10 py-12 md:px-14 order-1 md:order-2">
-                <p style={{ fontFamily: "Inter, sans-serif", fontSize: "0.625rem", letterSpacing: "0.22em", textTransform: "uppercase", color: "#C5A059", marginBottom: "20px" }}>
-                  {current.label}
-                </p>
-                <h2
-                  style={{ fontFamily: "Noto Serif JP, Georgia, serif", fontSize: "clamp(1.75rem,3.5vw,3rem)", fontWeight: 300, color: "#F0EBE2", lineHeight: 1.15, marginBottom: "24px", letterSpacing: "-0.015em" }}
-                >
-                  {current.title}
-                </h2>
-                <p
-                  style={{ fontFamily: "Inter, sans-serif", fontSize: "clamp(0.875rem,1.5vw,1.0rem)", color: "rgba(240,235,226,0.65)", lineHeight: 1.85, maxWidth: "480px", fontWeight: 300 }}
-                >
-                  {current.body}
-                </p>
-
-                {/* Play button — text form */}
-                <motion.button
-                  id="luffy-song-play-btn"
-                  onClick={toggleLuffy}
-                  className="mt-10 self-start inline-flex items-center gap-3 px-6 py-3 text-xs font-semibold uppercase tracking-widest"
-                  style={{
-                    fontFamily: "Inter, sans-serif",
-                    border: "1px solid rgba(197,160,89,0.4)",
-                    color: "#C5A059",
-                    background: "rgba(197,160,89,0.07)",
-                    borderRadius: "2px",
-                    letterSpacing: "0.14em",
-                    cursor: "pointer",
-                  }}
-                  whileHover={{ background: "rgba(197,160,89,0.14)", borderColor: "rgba(197,160,89,0.7)" }}
-                  whileTap={{ scale: 0.97 }}
-                >
-                  {luffyPlaying ? (
-                    <>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="4" width="4" height="16" rx="1"/><rect x="15" y="4" width="4" height="16" rx="1"/></svg>
-                      Pause Song
-                    </>
-                  ) : (
-                    <>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                      Play Luffy&apos;s Song
-                    </>
-                  )}
-                </motion.button>
-              </div>
-            </div>
-          )}
-
-          {/* ───── NARRATIVE / GRATITUDE card ───── */}
-          {(current.type === "narrative" || current.type === "gratitude") && (
-            <div
-              className="relative w-full h-full flex items-center justify-center"
-              style={{ background: cardBg[current.type] }}
-            >
-              {/* Ghosted kanji watermark */}
-              <div
-                className="absolute select-none pointer-events-none"
-                style={{
-                  fontFamily: "Noto Serif JP, serif",
-                  fontSize: "clamp(220px, 30vw, 380px)",
-                  color: "rgba(42,58,92,0.04)",
-                  right: "-2%",
-                  bottom: "-5%",
-                  lineHeight: 1,
-                  fontWeight: 700,
-                }}
-              >
-                {current.type === "narrative" ? "師" : "謝"}
-              </div>
-
-              {/* Left accent rule */}
-              <div
-                className="absolute left-0 top-[15%] bottom-[15%] w-[3px]"
-                style={{ background: "linear-gradient(to bottom, transparent, rgba(197,160,89,0.5), transparent)" }}
-              />
-
-              <div className="relative z-10 px-12 py-16 md:px-20 max-w-3xl">
-                <p
-                  style={{ fontFamily: "Inter, sans-serif", fontSize: "0.6rem", letterSpacing: "0.24em", textTransform: "uppercase", color: "#C5A059", marginBottom: "20px" }}
-                >
-                  {current.label}
-                </p>
-                <h2
-                  style={{ fontFamily: "Noto Serif JP, Georgia, serif", fontSize: "clamp(1.75rem,3.5vw,3rem)", fontWeight: 300, color: "#1A253C", lineHeight: 1.15, marginBottom: "28px", letterSpacing: "-0.015em" }}
-                >
-                  {current.title}
-                </h2>
-                {/* Thin gold rule */}
-                <div style={{ width: "40px", height: "1px", background: "rgba(197,160,89,0.6)", marginBottom: "28px" }} />
-                <p
-                  style={{ fontFamily: "Inter, sans-serif", fontSize: "clamp(0.9rem,1.5vw,1.05rem)", color: "#3A4A62", lineHeight: 1.9, maxWidth: "600px", fontWeight: 300 }}
-                >
-                  {current.body}
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* ───── PHOTO card ───── */}
-          {current.type === "photo" && current.image && (
-            <div className="relative w-full h-full">
-              <Image
-                src={current.image}
-                alt={current.title}
-                fill
-                sizes="100vw"
-                className="object-cover"
-                style={{ filter: "brightness(0.6) saturate(0.8)" }}
-              />
-              {/* Bottom gradient */}
-              <div
-                className="absolute inset-0"
-                style={{
-                  background:
-                    "linear-gradient(to top, rgba(6,8,14,0.92) 0%, rgba(6,8,14,0.4) 45%, transparent 100%)",
-                }}
-              />
-              {/* Photo caption */}
-              <div className="absolute bottom-0 left-0 right-0 px-8 pb-28 md:px-16 md:pb-32 max-w-2xl">
-                <p style={{ fontFamily: "Inter, sans-serif", fontSize: "0.6rem", letterSpacing: "0.22em", textTransform: "uppercase", color: "#C5A059", marginBottom: "14px" }}>
-                  {current.label}
-                </p>
-                <h2 style={{ fontFamily: "Noto Serif JP, Georgia, serif", fontSize: "clamp(1.4rem,3vw,2.5rem)", fontWeight: 300, color: "#F0EBE2", lineHeight: 1.2, marginBottom: "14px", letterSpacing: "-0.015em" }}>
-                  {current.title}
-                </h2>
-                <p style={{ fontFamily: "Inter, sans-serif", fontSize: "clamp(0.85rem,1.3vw,0.95rem)", color: "rgba(240,235,226,0.6)", lineHeight: 1.8, maxWidth: "480px", fontWeight: 300 }}>
-                  {current.body}
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* ───── OUTRO card ───── */}
-          {current.type === "outro" && (
-            <div
-              className="relative w-full h-full flex items-center justify-center overflow-hidden"
-              style={{ background: cardBg.outro }}
-            >
-              {/* Ink wash texture */}
-              <div
-                className="absolute inset-0 opacity-[0.03]"
-                style={{
-                  backgroundImage:
-                    "radial-gradient(ellipse 80% 50% at 50% 50%, rgba(197,160,89,1) 0%, transparent 100%)",
-                }}
-              />
-              {/* Large faded kanji */}
-              <div
-                className="absolute select-none pointer-events-none"
-                style={{
-                  fontFamily: "Noto Serif JP, serif",
-                  fontSize: "clamp(280px, 40vw, 500px)",
-                  color: "rgba(197,160,89,0.04)",
-                  top: "50%",
-                  left: "50%",
-                  transform: "translate(-50%, -50%)",
-                  lineHeight: 1,
-                  fontWeight: 700,
-                }}
-              >
-                感
-              </div>
-
-              <div className="relative z-10 text-center px-8 md:px-16 max-w-2xl">
-                <p style={{ fontFamily: "Inter, sans-serif", fontSize: "0.6rem", letterSpacing: "0.24em", textTransform: "uppercase", color: "#C5A059", marginBottom: "20px", opacity: 0.8 }}>
-                  {current.label}
-                </p>
-                <h2
-                  style={{ fontFamily: "Noto Serif JP, Georgia, serif", fontSize: "clamp(2rem,4.5vw,3.75rem)", fontWeight: 300, color: "#F0EBE2", lineHeight: 1.1, marginBottom: "28px", letterSpacing: "-0.02em" }}
-                >
-                  {current.title}
-                </h2>
-                {/* Thin gold separator */}
-                <div style={{ width: "40px", height: "1px", background: "rgba(197,160,89,0.5)", margin: "0 auto 28px" }} />
-                <p style={{ fontFamily: "Inter, sans-serif", fontSize: "clamp(0.875rem,1.5vw,1.0rem)", color: "rgba(240,235,226,0.6)", lineHeight: 1.9, maxWidth: "520px", margin: "0 auto", fontWeight: 300 }}>
-                  {current.body}
-                </p>
-
-                {/* Walk again button */}
-                <motion.button
-                  id="memory-replay-btn"
-                  onClick={() => { setDirection(-1); setIndex(0); }}
-                  className="mt-12 inline-flex items-center gap-3 px-8 py-3.5 text-xs font-semibold uppercase tracking-widest mx-auto"
-                  style={{
-                    fontFamily: "Inter, sans-serif",
-                    border: "1px solid rgba(197,160,89,0.35)",
-                    color: "#C5A059",
-                    background: "rgba(197,160,89,0.06)",
-                    borderRadius: "2px",
-                    letterSpacing: "0.16em",
-                    cursor: "pointer",
-                  }}
-                  whileHover={{ background: "rgba(197,160,89,0.12)", borderColor: "rgba(197,160,89,0.6)" }}
-                  whileTap={{ scale: 0.97 }}
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M21.5 2v6h-6"/><path d="M21.34 15.57a10 10 0 1 1-.57-8.38L20.77 8"/>
-                  </svg>
-                  Walk Again
-                </motion.button>
-              </div>
-            </div>
-          )}
-        </motion.div>
-      </AnimatePresence>
-
-      {/* ── Navigation: invisible click zones left / right ── */}
-      <button
-        onClick={() => navigate(-1)}
-        disabled={index === 0}
-        className="absolute left-0 top-0 h-full z-20 focus:outline-none"
-        style={{ width: "clamp(48px, 10vw, 80px)", background: "transparent", border: "none", cursor: index === 0 ? "default" : "w-resize" }}
-        aria-label="Previous"
-      />
-      <button
-        onClick={() => navigate(1)}
-        disabled={index === total - 1}
-        className="absolute right-0 top-0 h-full z-20 focus:outline-none"
-        style={{ width: "clamp(48px, 10vw, 80px)", background: "transparent", border: "none", cursor: index === total - 1 ? "default" : "e-resize" }}
-        aria-label="Next"
-      />
-
-      {/* ── Arrow hint buttons (visible) ── */}
-      <AnimatePresence>
-        {index > 0 && (
-          <motion.button
-            key="prev-arrow"
-            onClick={() => navigate(-1)}
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -10 }}
-            transition={{ duration: 0.3 }}
-            className="absolute left-5 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full flex items-center justify-center focus:outline-none"
-            style={{
-              background: "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              color: "rgba(255,255,255,0.5)",
-              backdropFilter: "blur(8px)",
-              cursor: "pointer",
-            }}
-            aria-label="Previous slide"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="15 18 9 12 15 6"/>
-            </svg>
-          </motion.button>
-        )}
-        {index < total - 1 && (
-          <motion.button
-            key="next-arrow"
-            onClick={() => navigate(1)}
-            initial={{ opacity: 0, x: 10 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 10 }}
-            transition={{ duration: 0.3 }}
-            className="absolute right-5 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full flex items-center justify-center focus:outline-none"
-            style={{
-              background: "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              color: "rgba(255,255,255,0.5)",
-              backdropFilter: "blur(8px)",
-              cursor: "pointer",
-            }}
-            aria-label="Next slide"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="9 18 15 12 9 6"/>
-            </svg>
-          </motion.button>
-        )}
-      </AnimatePresence>
-
-      {/* ── Bottom HUD ── */}
-      <div
-        className="absolute bottom-0 left-0 right-0 z-30 flex items-end justify-between px-6 pb-8 md:px-10 md:pb-10"
-        style={{ pointerEvents: "none" }}
-      >
-        {/* Index */}
-        <div style={{ pointerEvents: "auto" }}>
-          <span
-            style={{
-              fontFamily: "Inter, sans-serif",
-              fontSize: "0.65rem",
-              letterSpacing: "0.18em",
-              textTransform: "uppercase",
-              color: "rgba(197,160,89,0.55)",
-            }}
-          >
-            {pad(index + 1)}&thinsp;/&thinsp;{pad(total)}
+      {/* ── Global Header (Japanese Subtitle / Mute Control) ── */}
+      <header className="relative z-30 w-full px-6 pt-6 flex items-center justify-between max-w-lg mx-auto">
+        <div className="flex flex-col">
+          <span className="text-[10px] tracking-[0.25em] text-[#C5A059] font-semibold uppercase">
+            {current.kana}
+          </span>
+          <span className="text-[9px] tracking-widest text-[#F0EBE2]/40 font-medium uppercase mt-0.5">
+            {current.romaji}
           </span>
         </div>
 
-        {/* Segment progress dots */}
-        <div className="flex items-center gap-2" style={{ pointerEvents: "auto" }}>
+        {/* Global Mute Toggle Button */}
+        <button
+          id="mute-toggle-btn"
+          onClick={() => setMuted((prev) => !prev)}
+          className="w-10 h-10 rounded-full flex items-center justify-center bg-white/5 border border-white/10 text-white/60 hover:text-[#C5A059] hover:border-[#C5A059]/30 hover:bg-white/10 transition-all active:scale-95"
+          style={{ cursor: "pointer" }}
+          aria-label={muted ? "Unmute Audio" : "Mute Audio"}
+        >
+          {muted ? (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+              <line x1="23" y1="9" x2="17" y2="15" />
+              <line x1="17" y1="9" x2="23" y2="15" />
+            </svg>
+          ) : (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+            </svg>
+          )}
+        </button>
+      </header>
+
+      {/* ── Main Viewport Stack ── */}
+      <main className="relative flex-1 w-full max-w-lg mx-auto flex flex-col justify-start px-6 pt-8 z-10 overflow-hidden">
+        <AnimatePresence initial={false} custom={dir} mode="wait">
+          <motion.div
+            key={current.id}
+            custom={dir}
+            variants={slideVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ duration: 0.45, ease: [0.25, 1, 0.5, 1] }}
+            className="w-full flex-1 flex flex-col justify-between"
+          >
+            {/* Upper Content Box */}
+            <div className="flex flex-col">
+              {/* Giant Serif Header */}
+              <h2
+                className="text-[2.6rem] md:text-[3.2rem] font-bold tracking-tight leading-[1.08] text-[#F0EBE2] mb-6 whitespace-pre-line"
+                style={{ fontFamily: "Noto Serif JP, Georgia, serif" }}
+              >
+                {current.headline}
+              </h2>
+
+              {/* Light Subtitle paragraph */}
+              <p className="text-[0.95rem] md:text-[1rem] leading-relaxed text-[#F0EBE2]/70 font-light max-w-sm mb-6">
+                {current.sub}
+              </p>
+
+              {/* Action Button (Enter the Lane / Walk Again) */}
+              {current.cta && (
+                <button
+                  id={current.id === "cover" ? "cover-cta-btn" : "memory-replay-btn"}
+                  onClick={() => (current.id === "cover" ? navigate(1) : jumpToPage(0))}
+                  className="group inline-flex items-center gap-3 px-6 py-3.5 rounded-full text-xs font-semibold uppercase tracking-widest text-[#08070D] transition-all hover:scale-103 active:scale-97 mb-6"
+                  style={{
+                    background: "linear-gradient(135deg, #C5A059 0%, #B8924A 100%)",
+                    boxShadow: "0 6px 20px rgba(197, 160, 89, 0.25)",
+                    cursor: "pointer",
+                    width: "fit-content",
+                  }}
+                >
+                  <span>{current.cta}</span>
+                  <span className="w-5 h-5 rounded-full bg-black/10 flex items-center justify-center transition-transform group-hover:translate-x-0.5">
+                    {current.id === "cover" ? (
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                        <path d="M5 12h14M12 5l7 7-7 7" />
+                      </svg>
+                    ) : (
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+                      </svg>
+                    )}
+                  </span>
+                </button>
+              )}
+
+              {/* Inline Vinyl Player Interface (Only on First Day Card) */}
+              {current.hasAudio && (
+                <div className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 max-w-sm mb-6">
+                  {/* Rotating CD Disc */}
+                  <motion.button
+                    id="luffy-vinyl-btn"
+                    onClick={toggleLuffy}
+                    animate={luffyPlaying ? { rotate: 360 } : { rotate: 0 }}
+                    transition={luffyPlaying ? { repeat: Infinity, duration: 6, ease: "linear" } : { duration: 0.3 }}
+                    className="relative w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0"
+                    style={{
+                      background: "radial-gradient(circle, #2C2C2C 20%, #151515 21%, #090909 100%)",
+                      border: luffyPlaying ? "2px solid #C5A059" : "2px solid rgba(197, 160, 89, 0.4)",
+                      boxShadow: luffyPlaying ? "0 0 20px rgba(197, 160, 89, 0.25)" : "none",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <div className="w-4 h-4 rounded-full bg-[#B7282E] flex items-center justify-center">
+                      {luffyPlaying ? (
+                        <svg width="6" height="6" viewBox="0 0 24 24" fill="white">
+                          <rect x="4" y="4" width="4" height="16" />
+                          <rect x="16" y="4" width="4" height="16" />
+                        </svg>
+                      ) : (
+                        <svg width="6" height="6" viewBox="0 0 24 24" fill="white" style={{ marginLeft: "1px" }}>
+                          <path d="M8 5v14l11-7z" />
+                        </svg>
+                      )}
+                    </div>
+                  </motion.button>
+
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-[#F0EBE2] truncate">
+                      Luffy&apos;s Theme Song
+                    </p>
+                    <p className="text-[10px] text-[#F0EBE2]/40 truncate mt-0.5">
+                      Performed by Gowrisankar Sensei on Day One
+                    </p>
+                    <button
+                      id="luffy-song-play-btn"
+                      onClick={toggleLuffy}
+                      className="text-[10px] font-bold uppercase tracking-wider text-[#C5A059] mt-1.5 inline-block"
+                      style={{ cursor: "pointer" }}
+                    >
+                      {luffyPlaying ? "Pause Track" : "Play Track"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Bottom Section: Overlapping Scattered Polaroid Collage Layout */}
+            <div className="flex-1 relative min-h-[220px] max-h-[340px] w-full mt-4 flex items-end">
+              {current.photos && current.photos.length > 0 && (
+                <div className="absolute inset-x-0 bottom-4 h-full flex items-end justify-center">
+                  {current.photos.map((src, idx) => {
+                    // Position setups based on collage photo count to match screenshots
+                    let rotate = "0deg";
+                    let zIndex = 10;
+                    let bottom = "0px";
+                    let leftOffset = "50%";
+                    let scale = "1";
+
+                    if (current.photos.length === 1) {
+                      rotate = "-2deg";
+                      bottom = "10px";
+                      leftOffset = "50%";
+                    } else if (current.photos.length === 2) {
+                      if (idx === 0) {
+                        rotate = "-6deg";
+                        leftOffset = "35%";
+                        bottom = "15px";
+                        zIndex = 10;
+                      } else {
+                        rotate = "4deg";
+                        leftOffset = "65%";
+                        bottom = "5px";
+                        zIndex = 12;
+                      }
+                    } else if (current.photos.length >= 3) {
+                      if (idx === 0) {
+                        rotate = "-8deg";
+                        leftOffset = "26%";
+                        bottom = "20px";
+                        zIndex = 10;
+                        scale = "0.95";
+                      } else if (idx === 1) {
+                        rotate = "6deg";
+                        leftOffset = "74%";
+                        bottom = "30px";
+                        zIndex = 11;
+                        scale = "0.95";
+                      } else {
+                        rotate = "-1deg";
+                        leftOffset = "50%";
+                        bottom = "0px";
+                        zIndex = 15;
+                        scale = "1.05";
+                      }
+                    }
+
+                    return (
+                      <motion.div
+                        key={idx}
+                        initial={{ opacity: 0, y: 30, scale: 0.9 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        className="absolute w-[150px] h-[200px] md:w-[170px] md:h-[220px] bg-[#FAF8F5] p-2.5 pb-8 rounded-xl shadow-[0_12px_28px_rgba(0,0,0,0.5)] border border-white/5 flex flex-col justify-between"
+                        style={{
+                          left: leftOffset,
+                          bottom: bottom,
+                          transform: `translateX(-50%) rotate(${rotate}) scale(${scale})`,
+                          zIndex: zIndex,
+                          transformOrigin: "bottom center",
+                        }}
+                      >
+                        <div className="relative w-full h-full bg-[#EBE7DF] rounded-lg overflow-hidden flex-1">
+                          <Image
+                            src={src}
+                            alt="Class Memory"
+                            fill
+                            sizes="170px"
+                            className="object-cover object-top"
+                          />
+                        </div>
+                        {/* Polaroid white edge bottom spacing is created via pb-8 */}
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </AnimatePresence>
+      </main>
+
+      {/* ── Footer Centered Pagination Pill Container ── */}
+      <footer className="relative z-30 w-full pb-8 pt-4 flex items-center justify-center">
+        <div className="flex items-center gap-3 px-5 py-2.5 rounded-full bg-black/40 border border-white/10 backdrop-blur-xl">
           {cards.map((c, i) => (
             <button
               key={c.id}
-              onClick={() => { setDirection(i > index ? 1 : -1); setIndex(i); }}
-              aria-label={`Go to card ${i + 1}`}
+              onClick={() => jumpToPage(i)}
+              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-all active:scale-90"
               style={{
-                width: i === index ? "28px" : "6px",
-                height: "4px",
-                borderRadius: "2px",
-                background: i === index ? "#C5A059" : "rgba(255,255,255,0.2)",
+                background: i === page ? "#F0EBE2" : "transparent",
+                color: i === page ? "#08070D" : "rgba(240, 235, 226, 0.4)",
                 border: "none",
                 cursor: "pointer",
-                transition: "width 0.4s cubic-bezier(0.22,1,0.36,1), background 0.3s ease",
-                padding: 0,
               }}
-            />
+              aria-label={`Go to section ${i + 1}`}
+            >
+              {i + 1}
+            </button>
           ))}
         </div>
-
-        {/* Card label */}
-        <div style={{ pointerEvents: "none", textAlign: "right" }}>
-          <span
-            style={{
-              fontFamily: "Noto Serif JP, serif",
-              fontSize: "0.7rem",
-              letterSpacing: "0.08em",
-              color: "rgba(197,160,89,0.5)",
-            }}
-          >
-            {current.label}
-          </span>
-        </div>
-      </div>
-
-      {/* ── Top chrome — exit link ── */}
-      <div className="absolute top-0 left-0 right-0 z-30 flex items-center justify-between px-6 pt-6 md:px-10 md:pt-8">
-        <a
-          href="/"
-          style={{
-            fontFamily: "Inter, sans-serif",
-            fontSize: "0.6rem",
-            letterSpacing: "0.2em",
-            textTransform: "uppercase",
-            color: "rgba(197,160,89,0.55)",
-            textDecoration: "none",
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "8px",
-            transition: "color 0.2s ease",
-          }}
-          onMouseEnter={e => (e.currentTarget.style.color = "rgba(197,160,89,1)")}
-          onMouseLeave={e => (e.currentTarget.style.color = "rgba(197,160,89,0.55)")}
-        >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
-          </svg>
-          Exit
-        </a>
-        <span
-          style={{
-            fontFamily: "Inter, sans-serif",
-            fontSize: "0.6rem",
-            letterSpacing: "0.22em",
-            textTransform: "uppercase",
-            color: "rgba(197,160,89,0.45)",
-          }}
-        >
-          Memory Lane
-        </span>
-      </div>
+      </footer>
     </div>
   );
 }
