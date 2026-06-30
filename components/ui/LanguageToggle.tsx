@@ -3,10 +3,14 @@
 import { motion } from "framer-motion";
 import { useLanguage } from "@/lib/language-context";
 import { translations } from "@/lib/translations";
+import { usePathname } from "next/navigation";
 
 export default function LanguageToggle() {
+  const pathname = usePathname();
   const { lang, toggleLang } = useLanguage();
   const label = lang === "en" ? translations.toggle.switchTo.en : translations.toggle.switchTo.ja;
+
+  if (pathname === "/memory-lane") return null;
 
   return (
     <motion.button
