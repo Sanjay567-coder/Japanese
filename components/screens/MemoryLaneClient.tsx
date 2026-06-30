@@ -18,12 +18,32 @@ export default function MemoryLaneClient({ images }: MemoryLaneClientProps) {
   const songRef = useRef<HTMLAudioElement | null>(null);
   const mutedRef = useRef(false);
 
+  // Sync mute state and actually play/pause audio
   useEffect(() => {
     mutedRef.current = muted;
-    if (bgRef.current) bgRef.current.muted = muted;
-    if (songRef.current) songRef.current.muted = muted;
-  }, [muted]);
+    const bg = bgRef.current;
+    const song = songRef.current;
+    if (!bg || !song) return;
 
+    bg.muted = muted;
+    song.muted = muted;
+
+    if (muted) {
+      bg.pause();
+      song.pause();
+    } else {
+      if (luffyPlaying) {
+        bg.pause();
+        song.play().catch(() => {});
+      } else {
+        song.pause();
+        bg.play().catch(() => {});
+      }
+    }
+  }, [muted, luffyPlaying]);
+
+  // Distribute 3 images across 5 pages: 1 -> 2 -> 3 -> 1 -> 2
+  // This guarantees NO two consecutive pages share the same image.
   const cards = useMemo(() => [
     {
       id: "cover",
@@ -33,7 +53,7 @@ export default function MemoryLaneClient({ images }: MemoryLaneClientProps) {
       headline: "This is for\nyou, Sensei.",
       sub: "A small memory lane for the teacher who made Japanese feel warmer, closer, and easier to love.",
       cta: "Enter the lane",
-      photos: images.slice(0, 1),
+      photo: images[0] || "/assets/images/image1.jpeg",
       hasAudio: false,
     },
     {
@@ -44,7 +64,7 @@ export default function MemoryLaneClient({ images }: MemoryLaneClientProps) {
       headline: "A Song of\nAdventure.",
       sub: "Before a single textbook opened, you stood at the front of the room and sang. A joyful rendition of Luffy's theme song from One Piece. All academic anxiety evaporated instantly. We knew right then that this class would be a true adventure.",
       cta: null,
-      photos: images.slice(1, 2),
+      photo: images[1] || "/assets/images/image2.jpeg",
       hasAudio: true,
     },
     {
@@ -55,7 +75,7 @@ export default function MemoryLaneClient({ images }: MemoryLaneClientProps) {
       headline: "A Reassuring\nPresence.",
       sub: "Carrying the quiet composure of Dhoni, your presence was defined by steady warmth and a reassuring smile. You made complex grammar feel simple, encouraging us to act out verbs and bring the vocabulary to life.",
       cta: null,
-      photos: images.slice(0, 2),
+      photo: images[2] || "/assets/images/image3.jpeg",
       hasAudio: false,
     },
     {
@@ -66,7 +86,7 @@ export default function MemoryLaneClient({ images }: MemoryLaneClientProps) {
       headline: "A Profound\nThank You.",
       sub: "We are deeply grateful for your egalitarian approach to teaching. You never lectured from a pedestal, but worked alongside us like a fellow student—sharing in our breakthroughs, our confusions, and our growth.",
       cta: null,
-      photos: images.slice(1, 3),
+      photo: images[0] || "/assets/images/image1.jpeg",
       hasAudio: false,
     },
     {
@@ -77,7 +97,7 @@ export default function MemoryLaneClient({ images }: MemoryLaneClientProps) {
       headline: "We will miss\nyou, Sensei.",
       sub: "Thank you for every class, every correction, every smile, and every moment where you made us believe we could do better.",
       cta: "Walk again",
-      photos: images.slice(0, 3),
+      photo: images[1] || "/assets/images/image2.jpeg",
       hasAudio: false,
     },
   ], [images]);
@@ -85,6 +105,7 @@ export default function MemoryLaneClient({ images }: MemoryLaneClientProps) {
   const total = cards.length;
   const current = cards[page];
 
+  // Initialize and manage audio lifecycle
   useEffect(() => {
     const bg = new Audio("/assets/audio/background.mp3");
     const song = new Audio("/assets/audio/audio.mp3");
@@ -99,13 +120,16 @@ export default function MemoryLaneClient({ images }: MemoryLaneClientProps) {
       if (!mutedRef.current) bg.play().catch(() => {});
     };
     song.addEventListener("ended", handleSongEnded);
-    bg.play().catch(() => {});
 
+    // Interaction bypass to play audio
     const startOnInteraction = () => {
       if (bg.paused && !mutedRef.current) bg.play().catch(() => {});
       window.removeEventListener("pointerdown", startOnInteraction);
     };
     window.addEventListener("pointerdown", startOnInteraction, { once: true });
+
+    // Initial play attempt
+    bg.play().catch(() => {});
 
     return () => {
       song.removeEventListener("ended", handleSongEnded);
@@ -116,22 +140,28 @@ export default function MemoryLaneClient({ images }: MemoryLaneClientProps) {
     };
   }, []);
 
+  // Sync background music when Luffy's song toggles or page changes
   const toggleLuffy = useCallback(() => {
     const bg = bgRef.current;
     const song = songRef.current;
     if (!bg || !song) return;
+
     if (luffyPlaying) {
       song.pause();
       setLuffyPlaying(false);
       if (!mutedRef.current) bg.play().catch(() => {});
     } else {
       bg.pause();
+      if (mutedRef.current) {
+        setMuted(false); // Unmute globally if user explicitly clicks play
+      }
       song.play()
         .then(() => setLuffyPlaying(true))
         .catch(() => { if (!mutedRef.current) bg.play().catch(() => {}); });
     }
   }, [luffyPlaying]);
 
+  // Clean up Luffy audio when navigating away from the First Day card
   useEffect(() => {
     if (current.id !== "first-day" && luffyPlaying) {
       songRef.current?.pause();
@@ -139,6 +169,49 @@ export default function MemoryLaneClient({ images }: MemoryLaneClientProps) {
       setLuffyPlaying(false);
       if (!mutedRef.current) bgRef.current?.play().catch(() => {});
     }
+  }, [current.id, luffyPlaying]);
+
+  // Page lifecycle events to pause/stop audio when hidden, closed, or unfocused
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      const bg = bgRef.current;
+      const song = songRef.current;
+      if (!bg || !song) return;
+
+      if (document.hidden) {
+        bg.pause();
+        song.pause();
+      } else {
+        if (!mutedRef.current) {
+          if (current.id === "first-day" && luffyPlaying) {
+            song.play().catch(() => {});
+          } else {
+            bg.play().catch(() => {});
+          }
+        }
+      }
+    };
+
+    const handlePageHide = () => {
+      if (bgRef.current) {
+        bgRef.current.pause();
+        bgRef.current.currentTime = 0;
+      }
+      if (songRef.current) {
+        songRef.current.pause();
+        songRef.current.currentTime = 0;
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pagehide", handlePageHide);
+    window.addEventListener("beforeunload", handlePageHide);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("pagehide", handlePageHide);
+      window.removeEventListener("beforeunload", handlePageHide);
+    };
   }, [current.id, luffyPlaying]);
 
   const navigate = useCallback((d: 1 | -1) => {
@@ -177,18 +250,6 @@ export default function MemoryLaneClient({ images }: MemoryLaneClientProps) {
     center: { opacity: 1, x: 0 },
     exit: (d: number) => ({ opacity: 0, x: d > 0 ? -52 : 52 }),
   };
-
-  function getPolaroidStyles(count: number, idx: number) {
-    if (count === 1) return { rotate: "-2deg", xOffset: "0%", zIndex: 10 };
-    if (count === 2) {
-      return idx === 0
-        ? { rotate: "-7deg", xOffset: "-36%", zIndex: 10 }
-        : { rotate: "5deg", xOffset: "36%", zIndex: 12 };
-    }
-    if (idx === 0) return { rotate: "-9deg", xOffset: "-50%", zIndex: 10 };
-    if (idx === 1) return { rotate: "7deg", xOffset: "50%", zIndex: 11 };
-    return { rotate: "-1deg", xOffset: "0%", zIndex: 15 };
-  }
 
   return (
     <div
@@ -289,17 +350,17 @@ export default function MemoryLaneClient({ images }: MemoryLaneClientProps) {
             transition={{ duration: 0.4, ease: [0.25, 1, 0.5, 1] }}
             style={{
               height: "100%", display: "flex", flexDirection: "column",
-              padding: "16px 24px 0",
+              justifyContent: "space-between", padding: "16px 24px 0",
             }}
           >
-            {/* TEXT BLOCK — natural height, no overlap */}
-            <div style={{ flexShrink: 0 }}>
+            {/* TEXT BLOCK — natural height */}
+            <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", gap: "8px" }}>
               {/* Heading */}
               <h2 style={{
                 fontFamily: "Noto Serif JP, Georgia, serif",
                 fontSize: "clamp(1.85rem, 7.5vw, 2.75rem)",
                 fontWeight: 700, lineHeight: 1.1, letterSpacing: "-0.02em",
-                color: "#F0EBE2", whiteSpace: "pre-line", marginBottom: "16px",
+                color: "#F0EBE2", whiteSpace: "pre-line", marginBottom: "8px",
               }}>
                 {current.headline}
               </h2>
@@ -308,7 +369,7 @@ export default function MemoryLaneClient({ images }: MemoryLaneClientProps) {
               <p style={{
                 fontSize: "clamp(0.85rem, 3.5vw, 0.9375rem)",
                 lineHeight: 1.72, color: "rgba(240,235,226,0.72)",
-                fontWeight: 300, marginBottom: "20px", maxWidth: "340px",
+                fontWeight: 300, marginBottom: "12px", maxWidth: "340px",
               }}>
                 {current.sub}
               </p>
@@ -325,7 +386,7 @@ export default function MemoryLaneClient({ images }: MemoryLaneClientProps) {
                     textTransform: "uppercase", color: "#08070D", border: "none",
                     background: "linear-gradient(135deg, #C5A059 0%, #B8924A 100%)",
                     boxShadow: "0 6px 20px rgba(197,160,89,0.3), 0 2px 6px rgba(197,160,89,0.15)",
-                    cursor: "pointer", marginBottom: "20px",
+                    cursor: "pointer", marginBottom: "12px", width: "fit-content",
                     transition: "transform 0.18s ease, box-shadow 0.18s ease",
                   }}
                 >
@@ -348,7 +409,7 @@ export default function MemoryLaneClient({ images }: MemoryLaneClientProps) {
                 </button>
               )}
 
-              {/* Audio Card — redesigned */}
+              {/* Audio Card */}
               {current.hasAudio && (
                 <div style={{
                   display: "flex", alignItems: "center", gap: "14px",
@@ -356,7 +417,7 @@ export default function MemoryLaneClient({ images }: MemoryLaneClientProps) {
                   background: "linear-gradient(135deg, rgba(197,160,89,0.1) 0%, rgba(255,255,255,0.04) 100%)",
                   border: "1px solid rgba(197,160,89,0.22)",
                   boxShadow: "0 4px 20px rgba(0,0,0,0.35), inset 0 1px 0 rgba(197,160,89,0.12)",
-                  maxWidth: "340px", marginBottom: "20px", backdropFilter: "blur(8px)",
+                  maxWidth: "340px", marginBottom: "12px", backdropFilter: "blur(8px)",
                 }}>
                   {/* Vinyl Disc */}
                   <motion.button
@@ -453,54 +514,45 @@ export default function MemoryLaneClient({ images }: MemoryLaneClientProps) {
               )}
             </div>
 
-            {/* PHOTO COLLAGE — flex-1, overflow hidden, never overlaps text above */}
+            {/* PHOTO ZONE — takes remaining height, centers large photo card */}
             <div style={{
-              flex: 1, minHeight: 0, position: "relative", overflow: "hidden",
+              flex: 1, minHeight: 0, display: "flex",
+              alignItems: "center", justifyContent: "center",
+              position: "relative", paddingBottom: "10px",
             }}>
-              {current.photos && current.photos.length > 0 && (
-                <div style={{
-                  position: "absolute", inset: 0,
-                  display: "flex", alignItems: "flex-end", justifyContent: "center",
-                  paddingBottom: "8px",
-                }}>
-                  {current.photos.map((src, idx) => {
-                    const { rotate, xOffset, zIndex } = getPolaroidStyles(current.photos.length, idx);
-                    return (
-                      <motion.div
-                        key={`${current.id}-photo-${idx}`}
-                        initial={{ opacity: 0, y: 40, scale: 0.88 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        transition={{ duration: 0.55, delay: idx * 0.1, ease: [0.22, 1, 0.36, 1] }}
-                        style={{
-                          position: "absolute", bottom: 0,
-                          width: "clamp(118px, 31vw, 152px)",
-                          height: "clamp(152px, 40vw, 200px)",
-                          background: "#FAF8F5",
-                          padding: "7px 7px 26px",
-                          borderRadius: "12px",
-                          boxShadow: "0 14px 36px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.35)",
-                          border: "1px solid rgba(255,255,255,0.06)",
-                          transform: `translateX(${xOffset}) rotate(${rotate})`,
-                          transformOrigin: "bottom center",
-                          zIndex,
-                        }}
-                      >
-                        <div style={{
-                          position: "relative", width: "100%", height: "100%",
-                          borderRadius: "6px", overflow: "hidden", background: "#EBE7DF",
-                        }}>
-                          <Image
-                            src={src}
-                            alt="Class Memory"
-                            fill
-                            sizes="(max-width: 480px) 152px, 152px"
-                            className="object-cover object-top"
-                          />
-                        </div>
-                      </motion.div>
-                    );
-                  })}
-                </div>
+              {current.photo && (
+                <motion.div
+                  key={`${current.id}-photo`}
+                  initial={{ opacity: 0, y: 25, scale: 0.92 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                  style={{
+                    position: "relative",
+                    width: "clamp(200px, 64vw, 300px)",
+                    height: "clamp(260px, 84vw, 390px)",
+                    background: "#FAF8F5",
+                    padding: "9px 9px 32px",
+                    borderRadius: "14px",
+                    boxShadow: "0 18px 45px rgba(0,0,0,0.6), 0 2px 10px rgba(0,0,0,0.4)",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    transform: `rotate(${page % 2 === 0 ? "-2deg" : "2deg"})`,
+                    transformOrigin: "center center",
+                  }}
+                >
+                  <div style={{
+                    position: "relative", width: "100%", height: "100%",
+                    borderRadius: "8px", overflow: "hidden", background: "#EBE7DF",
+                  }}>
+                    <Image
+                      src={current.photo}
+                      alt="Class Memory"
+                      fill
+                      priority
+                      sizes="(max-width: 480px) 300px, 300px"
+                      className="object-cover object-top"
+                    />
+                  </div>
+                </motion.div>
               )}
             </div>
           </motion.div>
