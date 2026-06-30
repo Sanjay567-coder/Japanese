@@ -3,14 +3,10 @@
 import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { useLanguage } from "@/lib/language-context";
-import { translations } from "@/lib/translations";
 
 // ─── Shoji panel — refined, accurate grid proportions ────────────────────────
 function ShojiPanel({ side }: { side: "left" | "right" }) {
   const isLeft = side === "left";
-
-  // Shoji grid: 3 columns × 5 rows of translucent panes
   const cols = 3;
   const rows = 5;
 
@@ -104,7 +100,6 @@ function ShojiPanel({ side }: { side: "left" | "right" }) {
                 width: `calc(${(1 / cols) * 100}% - 6px)`,
                 height: `calc(${(1 / rows) * 100}% - 6px)`,
                 background: "rgba(255, 252, 245, 0.75)",
-                // Subtle paper grain
                 backdropFilter: "blur(1px)",
               }}
             />
@@ -125,60 +120,34 @@ function ShojiPanel({ side }: { side: "left" | "right" }) {
   );
 }
 
-// ─── Hub preview — shown through the gap as doors open ────────────────────────
-function HubPreview() {
+// ─── Memory Lane preview — shown through the gap as doors open ────────────────
+function MemoryLanePreview() {
   return (
     <div
-      className="absolute inset-0 flex flex-col items-center justify-center"
-      style={{ background: "var(--color-paper)" }}
+      className="absolute inset-0 flex flex-col items-center justify-center bg-[#111317]"
     >
-      {/* Ghost of the hub content — seen "through" the opening doors */}
       <div className="text-center px-6 select-none pointer-events-none">
-        <div
+        <h3
           style={{
-            fontFamily: "Noto Serif JP, serif",
+            fontFamily: "Noto Serif JP, Georgia, serif",
             fontSize: "clamp(1.5rem, 4vw, 2.5rem)",
-            color: "var(--color-indigo)",
+            color: "#C5A059",
             opacity: 0.9,
             marginBottom: "8px",
             fontWeight: "300",
           }}
         >
-          いらっしゃいませ
-        </div>
-        <div
-          style={{
-            fontFamily: "Noto Serif JP, serif",
-            fontSize: "clamp(1rem, 2.5vw, 1.5rem)",
-            color: "var(--color-hanko)",
-            opacity: 0.7,
-            marginBottom: "32px",
-          }}
-        >
-          ゴウリサンカル先生
-        </div>
-        {/* Blurred card silhouettes */}
-        <div className="flex items-center gap-4 justify-center">
-          {[0, 1, 2].map((i) => (
-            <div
-              key={i}
-              style={{
-                width: "80px",
-                height: "100px",
-                borderRadius: "12px",
-                background: "rgba(201,163,123,0.15)",
-                border: "1px solid rgba(201,163,123,0.2)",
-              }}
-            />
-          ))}
-        </div>
+          A Sensei&apos;s Legacy
+        </h3>
+        <p className="text-white/40 text-xs tracking-widest uppercase">
+          Loading Memory Lane
+        </p>
       </div>
     </div>
   );
 }
 
 export default function EntrancePage() {
-  const { t } = useLanguage();
   const router = useRouter();
   const [phase, setPhase] = useState<"idle" | "opening" | "navigating">("idle");
 
@@ -186,15 +155,13 @@ export default function EntrancePage() {
     if (phase !== "idle") return;
     setPhase("opening");
 
-    // Navigate during the animation — the page transition happens seamlessly
-    // as the doors are still sliding. This removes any perceptible gap/flash.
+    // Navigate to /memory-lane mid-animation at 700ms
     setTimeout(() => {
       setPhase("navigating");
-      router.push("/hub");
-    }, 700); // Navigate at 700ms — doors are 80% open, feels like walking through
+      router.push("/memory-lane");
+    }, 700);
   }, [phase, router]);
 
-  // Custom easing: weighted start, ease out to rest — feels like sliding wood
   const shojiEase = [0.32, 0, 0.67, 1] as const;
 
   return (
@@ -202,7 +169,7 @@ export default function EntrancePage() {
       className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden"
       style={{ background: "var(--color-paper)" }}
     >
-      {/* ── Ambient light blobs ── */}
+      {/* Ambient light blobs */}
       <div
         className="absolute pointer-events-none"
         style={{
@@ -224,7 +191,7 @@ export default function EntrancePage() {
         }}
       />
 
-      {/* ── Entrance content — staggered reveal ── */}
+      {/* Entrance content — English-only mature tone */}
       <AnimatePresence>
         {phase === "idle" && (
           <motion.div
@@ -257,7 +224,7 @@ export default function EntrancePage() {
                     color: "var(--color-wood)",
                   }}
                 >
-                  {t(translations.entrance.subtitle)}
+                  Japanese Language Class
                 </span>
                 <span style={{ fontSize: "0.75rem", color: "var(--color-hanko)", opacity: 0.7 }}>⛩</span>
               </div>
@@ -269,7 +236,7 @@ export default function EntrancePage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.65, delay: 0.38, ease: [0.22, 1, 0.36, 1] }}
               style={{
-                fontFamily: "Noto Serif JP, serif",
+                fontFamily: "Noto Serif JP, Georgia, serif",
                 fontSize: "clamp(2.5rem, 7vw, 5rem)",
                 fontWeight: "300",
                 color: "var(--color-indigo)",
@@ -278,7 +245,7 @@ export default function EntrancePage() {
                 marginBottom: "8px",
               }}
             >
-              {t(translations.entrance.heading1)}
+              A Farewell to
             </motion.h1>
 
             {/* Heading line 2 */}
@@ -287,7 +254,7 @@ export default function EntrancePage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.65, delay: 0.52, ease: [0.22, 1, 0.36, 1] }}
               style={{
-                fontFamily: "Noto Serif JP, serif",
+                fontFamily: "Noto Serif JP, Georgia, serif",
                 fontSize: "clamp(1.75rem, 5vw, 3.5rem)",
                 fontWeight: "500",
                 background: "linear-gradient(135deg, var(--color-hanko) 0%, #C9832A 100%)",
@@ -298,7 +265,7 @@ export default function EntrancePage() {
                 marginBottom: "32px",
               }}
             >
-              {t(translations.entrance.heading2)}
+              Sensei Gowrisankar
             </motion.h2>
 
             {/* Rule */}
@@ -320,7 +287,7 @@ export default function EntrancePage() {
               animate={{ opacity: 1 }}
               transition={{ duration: 0.7, delay: 0.82 }}
               style={{
-                fontFamily: "Noto Serif JP, serif",
+                fontFamily: "Noto Serif JP, Georgia, serif",
                 fontSize: "clamp(0.875rem, 2vw, 1.0625rem)",
                 color: "var(--color-ink)",
                 opacity: 0.6,
@@ -330,7 +297,7 @@ export default function EntrancePage() {
                 maxWidth: "380px",
               }}
             >
-              {t(translations.entrance.tagline)}
+              Thank you for every word, every song, every story.
             </motion.p>
 
             {/* Hanko CTA */}
@@ -344,7 +311,7 @@ export default function EntrancePage() {
                 id="entrance-btn"
                 onClick={handleEnter}
                 disabled={phase !== "idle"}
-                aria-label={t(translations.entrance.cta)}
+                aria-label="Enter Memory Lane"
                 style={{
                   width: "108px",
                   height: "108px",
@@ -359,7 +326,7 @@ export default function EntrancePage() {
                   gap: "4px",
                   position: "relative",
                   transition: "all 0.2s ease",
-                  fontFamily: "Noto Serif JP, serif",
+                  fontFamily: "Noto Serif JP, Georgia, serif",
                   color: "var(--color-hanko)",
                 }}
                 onMouseEnter={(e) => {
@@ -384,7 +351,7 @@ export default function EntrancePage() {
                   }}
                 />
                 <span style={{ fontSize: "1.75rem", lineHeight: 1 }}>
-                  {t(translations.entrance.cta)}
+                  Enter
                 </span>
               </button>
 
@@ -400,29 +367,29 @@ export default function EntrancePage() {
                   color: "var(--color-wood)",
                 }}
               >
-                {t(translations.entrance.ctaSubtext)}
+                Begin your journey
               </motion.p>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ── Hub preview layer — revealed as doors open ── */}
+      {/* ── Memory Lane preview layer ── */}
       <AnimatePresence>
         {phase !== "idle" && (
           <motion.div
-            key="hub-preview"
+            key="memory-lane-preview"
             className="fixed inset-0 z-30"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.3, delay: 0.15 }}
           >
-            <HubPreview />
+            <MemoryLanePreview />
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ── Shoji door panels — slide apart over the hub preview ── */}
+      {/* ── Shoji door panels — slide apart ── */}
       <AnimatePresence>
         {phase !== "idle" && (
           <>
@@ -458,7 +425,7 @@ export default function EntrancePage() {
               <ShojiPanel side="right" />
             </motion.div>
 
-            {/* Center shadow line — door gap realism */}
+            {/* Center shadow line */}
             <motion.div
               key="door-gap"
               className="fixed top-0 h-full z-50"

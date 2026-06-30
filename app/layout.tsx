@@ -1,28 +1,21 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { LanguageProvider } from "@/lib/language-context";
-import { AudioProvider } from "@/lib/audio-context";
 import SakuraPetals from "@/components/ui/SakuraPetals";
-import LanguageToggle from "@/components/ui/LanguageToggle";
-import NavBar from "@/components/ui/NavBar";
 
 export const metadata: Metadata = {
-  title: "Sayonara, Sensei Gowrisankar | さようなら、ゴウリサンカル先生",
+  title: "A Tribute to Gowrisankar Sensei",
   description:
-    "A bilingual farewell website from your Japanese language students. Thank you for every song, story, and kanji. / 日本語のクラスの学生からの、おわかれのウェブサイトです。",
+    "A card-based narrative tribute and farewell from the students of Gowrisankar Sensei's Japanese language class.",
   keywords: [
-    "Japanese language",
-    "Sensei Gowrisankar",
-    "farewell",
-    "さようなら",
-    "先生",
-    "日本語",
-    "Japanese class",
+    "Gowrisankar Sensei",
+    "farewell tribute",
+    "Japanese language class",
+    "memory lane",
   ],
   openGraph: {
-    title: "Sayonara, Sensei Gowrisankar",
+    title: "A Tribute to Gowrisankar Sensei",
     description:
-      "A heartfelt bilingual farewell from your Japanese language class students.",
+      "A card-based narrative tribute and farewell from the students of Gowrisankar Sensei's Japanese language class.",
     type: "website",
   },
 };
@@ -47,23 +40,11 @@ export default function RootLayout({
         />
       </head>
       <body>
-        <LanguageProvider>
-          <AudioProvider>
-            {/* Background sakura petals — always visible */}
-            <SakuraPetals />
+        {/* Background sakura petals — always visible */}
+        <SakuraPetals />
 
-            {/* Floating language toggle — always visible */}
-            <LanguageToggle />
-
-            {/* Navigation bar — hidden on entrance page */}
-            <NavBar />
-
-            {/* Page content */}
-            <div className="relative z-10">
-              {children}
-            </div>
-          </AudioProvider>
-        </LanguageProvider>
+        {/* Page content */}
+        <div className="relative z-10">{children}</div>
       </body>
     </html>
   );

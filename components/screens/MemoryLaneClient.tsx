@@ -286,14 +286,14 @@ export default function MemoryLaneClient({ images }: MemoryLaneClientProps) {
       {/* Header Bar */}
       <header className="relative z-10 px-6 max-w-5xl mx-auto w-full flex items-center justify-between">
         <Link
-          href="/hub"
+          href="/"
           className="inline-flex items-center gap-2.5 text-xs tracking-widest text-[#C5A059] uppercase hover:text-white transition-colors py-2 px-3 rounded-lg hover:bg-white/5"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <line x1="19" y1="12" x2="5" y2="12" />
             <polyline points="12 19 5 12 12 5" />
           </svg>
-          Back to Hub
+          Exit to Gate
         </Link>
         <div className="flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-[#C5A059]" />
